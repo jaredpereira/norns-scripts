@@ -4,11 +4,9 @@
 -- press any key in rows 1-4
 
 engine.name = 'Ack'
+local ack = require 'jah/ack'
 
 local g = grid.connect()
-
-local ack = require 'jah/ack'
-local BeatClock = require 'beatclock'
 
 function init()
   -- State
@@ -33,7 +31,6 @@ function init()
   counter.time = 0.05
   counter.count = 0
   counter.callback = countStep
-
   counter:start()
 end
 
@@ -47,8 +44,16 @@ function countStep()
   end
   grid_redraw()
 end
---------------------------- 
 
+------ Actions ------
+
+function toggleStep(x,y)
+  steps[x][y] = steps[x][y] == false
+  grid_redraw()
+end
+
+
+------- Grid --------
 function g.event(x,y,z)
   if z == 0 then
     if y <= 4 then
@@ -57,10 +62,6 @@ function g.event(x,y,z)
   end
 end
 
-function toggleStep(x,y)
-  steps[x][y] = steps[x][y] == false
-  grid_redraw()
-end
 
 function grid_redraw()
   g.all(0)
