@@ -4,6 +4,8 @@
   I want to use the grid as a 16 step sequencer with 4 "instruments" each of
   which is a different sample.
   
+  You can view the full source [[https://gitlab.com/jaredpereira/norns-scripts/blob/master/sequencer/sequencer.lua][here]].
+  
 ** Setting up the script
    Before we can get to the actual logic we need to set up the script. This
    means setting up some state, setting up an engine, and setting up a simple
