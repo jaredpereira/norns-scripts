@@ -1,0 +1,278 @@
+* A Basic Sequencer
+  This is a basic sequencer I'm building to learn more about lua and the norns.
+  
+  I want to use the grid as a 16 step sequencer with 4 "instruments" each of
+  which is a different sample.
+  
+** Setting up the script
+   Before we can get to the actual logic we need to set up the script. This
+   means setting up some state, setting up an engine, and setting up a simple
+   counter to drive the sequencer. 
+   
+*** The engine (vroom vroom) 
+    A norns script on it's own doesn't actually make any noise. For that we need
+    an engine. Also while we're at it, we can connect to the grid so we can use
+    it later.
+
+    #+BEGIN_SRC lua :tangle yes
+      -- jss (jared's simple sequencer)
+      --
+      -- requires a grid
+      -- press any key in rows 1-4
+      --
+      -- row 5 jumps to step
+
+      engine.name = 'Ack'
+      local ack = require 'jah/ack'
+
+      local g = grid.connect()
+    #+END_SRC
+
+    I'm using [[https://monome.org/docs/norns/dust/jah/ack/][Ack]] , which is a simple sample playback playback engine.
+   
+    I'll need to configure Ack to add the channels I want, as well as the
+    parameters attached to them. I'm shamelessly borrowing these from [[https://github.com/monome/dust/blob/master/scripts/tehn/playfair.lua][tehn's
+    playfair]].
+    #+NAME: ack-setup
+    #+BEGIN_SRC lua
+      for channel=1,4 do
+        ack.add_channel_params(channel)
+      end
+      ack.add_effects_params()
+
+      params:read("tehn/playfair.pset")
+      params:bang()
+
+    #+END_SRC
+
+*** Setting up some state
+    Once we've got some sound set up we need to define how our works. I find it
+    makes sense to do this within a state variable.
+    
+    #+NAME: state
+    #+BEGIN_SRC lua
+      state = {
+        clock = true,
+        position = 1,
+        keys = {0, 0, 0},
+      }
+      for i=1,16 do
+        table.insert(state.steps, {false,false,false,false})
+      end
+    #+END_SRC
+
+    *steps* is the heart of our script. It's a table with 16 elements, which
+    contains 4 booleans, to tell us if theres an trigger on any of our 4 tracks.
+    
+    *clock* defines whether the clock is currently running.
+    
+    *position* tells us at what step in the sequence we're currently at.
+      
+*** Giving it a (heart)beat
+    The last step of the set up is initializing a counter.
+    
+    #+NAME: counter
+    #+BEGIN_SRC lua
+      counter = metro.alloc()
+      counter.time = 0.1
+      counter.count = -1
+      counter.callback = countStep
+      counter:start()
+    #+END_SRC
+    
+    The important part here is =counter.callback = countStep=. =countStep= is
+    the function that will be called at ever beat of the counter.
+    
+    Currently the tempo for counter is fixed at =0.1=. 
+    
+    TODO: Implement variable tempo!
+    
+*** Tying it together
+    All of this gets combined into an =init= function that gets called when we
+    start the script. 
+    
+    #+BEGIN_SRC lua :tangle yes :noweb yes
+      function init()
+        -- state
+        <<state>>
+
+        -- Ack setup
+        <<ack-setup>>
+
+        -- counter
+        <<counter>>
+      end
+
+    #+END_SRC
+
+** Running our beat
+   Now let's get into =countStep=.
+   
+   #+BEGIN_SRC lua :tangle yes
+     function countStep()
+       for instrument, triggered in pairs(state.steps[state.position]) do
+         if triggered then
+           print('triggered?')
+           engine.trig(instrument-1)
+         end
+       end
+       state.position = (state.position % 16) + 1
+       grid_redraw()
+     end
+   #+END_SRC
+   
+   It's fairly simple. We check all the instruments at our current position in
+   the sequence, and if they have a trigger we call =engine.trig=.
+
+   TODO: It's probably way better to use engine.multiTrig here, and store
+   triggers as a table of 0s and 1s.
+   
+   Once we've triggered sounds, we want to move to the next step in the sequence
+   by modifying state. That mod 16 makes the sequence loops.
+   
+   And /finally/ we want to redraw the grid every step. We'll take a look at the
+   function [[*Let there be light!][later]].
+** Getting some input
+   So we can actually make any noise yet as there's no way to actually create a
+   sequence. For that we need to take input from the grid and the norns in order
+   to modify the state.
+*** The Grid
+    To take input from the grid we write a function called g.event, which is
+    called every time a button is pressed (or unpressed) on the grid. It takes
+    three arguments, =x= and =y=, the position of the button pressed, and =z=
+    whether the button is being pressed down or released.
+    
+    #+BEGIN_SRC lua :tangle yes
+      ------ EVENTS ------
+
+      function g.event(x,y,z)
+        if y <= 4 and z == 0 then
+          toggleStep(x, y)
+        end
+
+        if y == 5 and z==1 then
+          setPosition(x)
+        end
+      end
+    #+END_SRC
+
+    We have two events here. 
+
+    First, if you're pressing a button in the first 4 rows (y<=4), we want modify the
+    sequence, and we want to do it when you lift your finger *off* the key (z==0). So
+    we call =toggleStep= and pass it the x and y coordinates. Don't worry about
+    how this function works we'll get to it later.
+    
+    Secondly, if you're pressing a key in the 5th row, we want to immediately
+    (z==1) jump to that step in the sequence, so we call =setPosition= and pass
+    it the x value. 
+*** The Norns
+    To interact with buttons on the norns we define a function called =key=
+    which takes =n=, the number of the button being pressed (1, 2, or 3) and
+    =z=, whether it's being pressed or released.
+
+    #+BEGIN_SRC lua :tangle yes
+      function key(n, z)
+        if n == 2 and z == 1 then
+          toggleClock()
+        end
+
+        if n == 3 and z == 1 then
+          clearPattern()
+        end
+      end
+    #+END_SRC
+
+    If you press button 2 we call =toggleClock= to play or pause the sequence.
+    If you press button 3 we call =clearPattern= to clear all the triggers in
+    the sequence.
+*** Thoughts on interfaces
+    This is actually one of the simplest things in the script, but it's one of
+    the most rewarding to develop. The exciting thing about the norns to me is
+    that with a relatively small amount of code you can make and modify robust
+    instruments. It's always exciting when you add a few lines for a whole new
+    feature in your sequencer.
+** Running actions
+   Okay let's actually get to those functions our inputs are calling. Each of
+   these functions are fairly small and self explanatory. The reason we want to
+   decouple them is so that we can have one place where we view all the
+   functions for changing state, and the code for taking input only decides what
+   input triggers what changes, /not/ how those changes are implemented. 
+
+   #+BEGIN_SRC lua :tangle yes
+     ------ ACTIONS ------
+
+     function toggleStep(x,y)
+       state.steps[x][y] = state.steps[x][y] == false
+       grid_redraw()
+     end
+
+     function setPosition(x)
+       state.position = x
+       grid_redraw()
+     end
+
+     function toggleClock()
+       if state.clock then
+         counter:stop()
+       else
+         counter:start()
+       end
+       state.clock = state.clock == false
+     end
+
+     function clearPattern()
+       for i=1,16 do
+         state.steps[i] = {false,false,false,false}
+       end
+     end
+   #+END_SRC
+   
+   for some of these actions we want to have immediate feedback, and so we call
+   the =grid_redraw()= function to draw the interface.
+** Let there be light!
+   Speaking of which, we've been operating in the dark till now. Let's see if we
+   can define =grid_redraw()= and render some lights.
+   
+   #+BEGIN_SRC lua :tangle yes 
+     ------- UI -------
+
+     function grid_redraw()
+       g.all(0)
+       for step, value in pairs(state.steps) do
+         for instrument, trigged in pairs(value) do
+           if step == state.position then
+             g.led(step, instrument, 5)
+           end
+           if trigged then
+             g.led(step,instrument, 10)
+           end
+         end
+       end
+       g.refresh()
+     end
+   #+END_SRC
+   
+   We want to do two things:
+   1. Light up every active trigger
+   2. Light up a column of buttons on the active step, so you can see where the
+      pattern is.
+
+   We do all this based on the state. First we iterate through all the steps in
+   the sequence. If it's the active step, we light each led with a value of 5,
+   and then if theres a trigger on that step we light it with a value of 10.
+   This means even on the active step you can differentiate which instruments
+   are triggered. 
+*** The Screen
+    Finally, we want to put /something/ on the screen, if only to avoid a bit of
+    a bug in the current version of norns (if there's nothing drawn you can't
+    enter the "script view" and so can't press buttons.
+    
+    #+BEGIN_SRC lua :tangle yes
+      function redraw()
+        screen.clear()
+        screen.text('jss')
+        screen.update()
+      end
+
+    #+END_SRC
