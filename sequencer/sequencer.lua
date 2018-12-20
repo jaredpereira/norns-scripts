@@ -13,6 +13,7 @@ local g = grid.connect()
 function init()
   -- state
   state = {
+    steps = {},
     clock = true,
     position = 1,
     keys = {0, 0, 0},
@@ -118,6 +119,6 @@ end
 
 function redraw()
   screen.clear()
-  screen.text('yoooo')
+  screen.text('jss')
   screen.update()
 end

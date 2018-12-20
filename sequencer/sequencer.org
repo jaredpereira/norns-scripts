@@ -54,6 +54,7 @@
     #+NAME: state
     #+BEGIN_SRC lua
       state = {
+        steps = {},
         clock = true,
         position = 1,
         keys = {0, 0, 0},
