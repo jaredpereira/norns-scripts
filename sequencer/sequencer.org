@@ -278,3 +278,22 @@
       end
 
     #+END_SRC
+** Future Features
+   
+   This is really just a foundation for me to build on top of. There are a
+   couple things that I /know/ I want to implement, and more I'm sure will
+   emerge.
+
+*** Save Patterns and Seqeunce them
+    Inspired by the [[https://www.teenageengineering.com/products/po/metal#po-33][PO-33 KO!]] from Teenage Engineering, it would be great to be
+    able to save patterns and then sequence /patterns/ into larger tracks! 
+
+    I feel like it this was implemented properly it would even be possible to
+    sequence sequences of sequences! It could get to be an infinite ladder. 
+*** Changing Parameters in the UI and Parameter Recording
+    This is inspired by the Korg VolcaBeats. You can record the movement of the
+    knobs into patterns, which allows you to create really dynamic phrases in
+    the sequence.
+*** Oscillators for Modulating anything
+    Inspired by the [[https://www.bastl-instruments.com/instruments/thyme/][Bastl Thyme]] we could allow the modulation of paramters via
+    oscillators running at different speeds.
