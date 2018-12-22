@@ -16,7 +16,6 @@ function init()
     steps = {},
     clock = true,
     position = 1,
-    keys = {0, 0, 0},
   }
   for i=1,16 do
     table.insert(state.steps, {false,false,false,false})
@@ -43,7 +42,6 @@ end
 function countStep()
   for instrument, triggered in pairs(state.steps[state.position]) do
     if triggered then
-      print('triggered?')
       engine.trig(instrument-1)
     end
   end

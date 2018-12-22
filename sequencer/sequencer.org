@@ -114,7 +114,6 @@
      function countStep()
        for instrument, triggered in pairs(state.steps[state.position]) do
          if triggered then
-           print('triggered?')
            engine.trig(instrument-1)
          end
        end
