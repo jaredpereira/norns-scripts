@@ -9,15 +9,17 @@
 ** Setting up the script
    Before we can get to the actual logic we need to set up the script. This
    means setting up some state, setting up an engine, and setting up a simple
-   counter to drive the sequencer. 
+   clock to drive the sequencer. 
    
-*** The engine (vroom vroom) 
-    A norns script on it's own doesn't actually make any noise. For that we need
-    an engine. Also while we're at it, we can connect to the grid so we can use
-    it later.
+*** Our Requirements
+    We need to import a couple requirements. First is an engine, as norns script
+    on it's own doesn't actually make any noise. Then we need to connec to a
+    grid (which you need to actually use this sequencer). Finally we'll irequire
+    and initialize a BeatClock which we'll use to run our sequencer.
 
     #+BEGIN_SRC lua :tangle yes
       -- jss (jared's simple sequencer)
+      -- v 0.0.2
       --
       -- requires a grid
       -- press any key in rows 1-4
@@ -28,8 +30,58 @@
       local ack = require 'jah/ack'
 
       local g = grid.connect()
+
+      local BeatClock = require 'beatclock'
+
+      local clk = BeatClock.new()
     #+END_SRC
 
+    
+*** An init function
+    Next up we'll write an =init= function, which will set up everything for our
+    script to run.
+    
+    #+BEGIN_SRC lua :tangle yes :noweb yes
+      function init()
+        -- State
+        <<state>>
+
+        -- Ack setup
+        <<ack-setup>>
+
+        -- BeatClock
+        <<clock>>
+      end
+
+    #+END_SRC
+    
+    Let's get into each of those set up functions
+*** Setting up some state
+    I like having a single state variable as it lets us be very clear that we're
+    accessing the state of the app whenever we are, and it clearly deliminates
+    it from the rest of the script (and libraries and built in norns functions)
+    
+    #+NAME: state
+    #+BEGIN_SRC lua
+      state = {
+        steps = {},
+        clock = true,
+        position = 1,
+      }
+      for i=1,16 do
+        table.insert(state.steps, {false,false,false,false})
+      end
+    #+END_SRC
+    
+    Let's break this down.
+
+    *steps* is the heart of our script. It's a table with 16 elements, which
+    contains 4 booleans, to tell us if theres an trigger on any of our 4 tracks.
+    
+    *clock* defines whether the clock is currently running.
+    
+    *position* tells us at what step in the sequence we're currently at.
+*** Initializing Ack
     I'm using [[https://monome.org/docs/norns/dust/jah/ack/][Ack]] , which is a simple sample playback playback engine.
    
     I'll need to configure Ack to add the channels I want, as well as the
@@ -46,67 +98,22 @@
       params:bang()
 
     #+END_SRC
-
-*** Setting up some state
-    Once we've got some sound set up we need to define how our works. I find it
-    makes sense to do this within a state variable.
-    
-    #+NAME: state
-    #+BEGIN_SRC lua
-      state = {
-        steps = {},
-        clock = true,
-        position = 1,
-      }
-      for i=1,16 do
-        table.insert(state.steps, {false,false,false,false})
-      end
-    #+END_SRC
-
-    *steps* is the heart of our script. It's a table with 16 elements, which
-    contains 4 booleans, to tell us if theres an trigger on any of our 4 tracks.
-    
-    *clock* defines whether the clock is currently running.
-    
-    *position* tells us at what step in the sequence we're currently at.
-      
+ 
 *** Giving it a (heart)beat
-    The last step of the set up is initializing a counter.
+    The last step of the set up is initializing a clock.
     
-    #+NAME: counter
+    #+NAME: clock
     #+BEGIN_SRC lua
-      counter = metro.alloc()
-      counter.time = 0.1
-      counter.count = -1
-      counter.callback = countStep
-      counter:start()
+      clk.on_step = countStep
+      clk.on_select_internal = function() clk:start() end
+
+      clk:add_clock_params()
+      clk:start()
     #+END_SRC
     
-    The important part here is =counter.callback = countStep=. =countStep= is
-    the function that will be called at ever beat of the counter.
+    The important part here is =clk.on_step= countStep=. =countStep= is
+    the function that will be called at ever beat of the clock.
     
-    Currently the tempo for counter is fixed at =0.1=. 
-    
-    TODO: Implement variable tempo!
-    
-*** Tying it together
-    All of this gets combined into an =init= function that gets called when we
-    start the script. 
-    
-    #+BEGIN_SRC lua :tangle yes :noweb yes
-      function init()
-        -- state
-        <<state>>
-
-        -- Ack setup
-        <<ack-setup>>
-
-        -- counter
-        <<counter>>
-      end
-
-    #+END_SRC
-
 ** Running our beat
    Now let's get into =countStep=.
    
@@ -215,9 +222,9 @@
 
      function toggleClock()
        if state.clock then
-         counter:stop()
+         clk:stop()
        else
-         counter:start()
+         clk:start()
        end
        state.clock = state.clock == false
      end

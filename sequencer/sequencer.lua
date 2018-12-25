@@ -1,4 +1,5 @@
 -- jss (jared's simple sequencer)
+-- v 0.0.2
 --
 -- requires a grid
 -- press any key in rows 1-4
@@ -10,8 +11,12 @@ local ack = require 'jah/ack'
 
 local g = grid.connect()
 
+local BeatClock = require 'beatclock'
+
+local clk = BeatClock.new()
+
 function init()
-  -- state
+  -- State
   state = {
     steps = {},
     clock = true,
@@ -31,12 +36,12 @@ function init()
   params:bang()
   
 
-  -- counter
-  counter = metro.alloc()
-  counter.time = 0.1
-  counter.count = -1
-  counter.callback = countStep
-  counter:start()
+  -- BeatClock
+  clk.on_step = countStep
+  clk.on_select_internal = function() clk:start() end
+  
+  clk:add_clock_params()
+  clk:start()
 end
 
 function countStep()
@@ -85,9 +90,9 @@ end
 
 function toggleClock()
   if state.clock then
-    counter:stop()
+    clk:stop()
   else
-    counter:start()
+    clk:start()
   end
   state.clock = state.clock == false
 end
