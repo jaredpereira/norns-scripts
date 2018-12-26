@@ -34,9 +34,28 @@
       local BeatClock = require 'beatclock'
 
       local clk = BeatClock.new()
-    #+END_SRC
 
+      local state = {
+        steps = {},
+        clock = true,
+        position = 1,
+      }
+    #+END_SRC
     
+    We also want to set up our state variable, as you can see at the end there.
+    
+    I like having a single state variable as it lets us be very clear that we're
+    accessing the state of the app whenever we are, and it clearly deliminates
+    it from the rest of the script (and libraries and built in norns functions)
+
+    Let's break it down.
+
+    *steps* is the heart of our script. It will keep track of all 16 steps and
+    what samples are triggered.
+    
+    *clock* defines whether the clock is currently running.
+    
+    *position* tells us at what step in the sequence we're currently at.
 *** An init function
     Next up we'll write an =init= function, which will set up everything for our
     script to run.
@@ -56,33 +75,21 @@
     #+END_SRC
     
     Let's get into each of those set up functions
-*** Setting up some state
-    I like having a single state variable as it lets us be very clear that we're
-    accessing the state of the app whenever we are, and it clearly deliminates
-    it from the rest of the script (and libraries and built in norns functions)
-    
+*** Setting up the state
     #+NAME: state
     #+BEGIN_SRC lua
-      state = {
-        steps = {},
-        clock = true,
-        position = 1,
-      }
       for i=1,16 do
         table.insert(state.steps, {false,false,false,false})
       end
     #+END_SRC
     
-    Let's break this down.
-
-    *steps* is the heart of our script. It's a table with 16 elements, which
-    contains 4 booleans, to tell us if theres an trigger on any of our 4 tracks.
+    We need to immediatly create our =steps= array. This would be tedious to
+    write out by hand, so we use a for loop to create 16 arrays, each containing
+    4 booleans, one for each sample. 
     
-    *clock* defines whether the clock is currently running.
-    
-    *position* tells us at what step in the sequence we're currently at.
 *** Initializing Ack
-    I'm using [[https://monome.org/docs/norns/dust/jah/ack/][Ack]] , which is a simple sample playback playback engine.
+    Next we need to set up the engine. I'm using [[https://monome.org/docs/norns/dust/jah/ack/][Ack]] , which is a simple sample
+    playback engine.
    
     I'll need to configure Ack to add the channels I want, as well as the
     parameters attached to them. I'm shamelessly borrowing these from [[https://github.com/monome/dust/blob/master/scripts/tehn/playfair.lua][tehn's

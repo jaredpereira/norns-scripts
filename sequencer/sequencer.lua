@@ -15,13 +15,14 @@ local BeatClock = require 'beatclock'
 
 local clk = BeatClock.new()
 
+local state = {
+  steps = {},
+  clock = true,
+  position = 1,
+}
+
 function init()
   -- State
-  state = {
-    steps = {},
-    clock = true,
-    position = 1,
-  }
   for i=1,16 do
     table.insert(state.steps, {false,false,false,false})
   end
