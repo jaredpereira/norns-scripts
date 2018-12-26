@@ -46,9 +46,9 @@ function init()
 end
 
 function countStep()
-  for instrument, triggered in pairs(state.steps[state.position]) do
+  for sample, triggered in pairs(state.steps[state.position]) do
     if triggered then
-      engine.trig(instrument-1)
+      engine.trig(sample-1)
     end
   end
   state.position = (state.position % 16) + 1
@@ -109,12 +109,12 @@ end
 function grid_redraw()
   g.all(0)
   for step, value in pairs(state.steps) do
-    for instrument, trigged in pairs(value) do
+    for y, triggered in pairs(value) do
       if step == state.position then
-        g.led(step, instrument, 5)
+        g.led(step, y, 5)
       end
-      if trigged then
-        g.led(step,instrument, 10)
+      if triggered then
+        g.led(step, y, 10)
       end
     end
   end

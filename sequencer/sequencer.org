@@ -1,8 +1,7 @@
 * A Basic Sequencer
   This is a basic sequencer I'm building to learn more about lua and the norns.
   
-  I want to use the grid as a 16 step sequencer with 4 "instruments" each of
-  which is a different sample.
+  I want to use the grid as a 16 step sequencer with 4 sample tracks.
   
   You can view the full source [[https://gitlab.com/jaredpereira/norns-scripts/blob/master/sequencer/sequencer.lua][here]].
   
@@ -126,9 +125,9 @@
    
    #+BEGIN_SRC lua :tangle yes
      function countStep()
-       for instrument, triggered in pairs(state.steps[state.position]) do
+       for sample, triggered in pairs(state.steps[state.position]) do
          if triggered then
-           engine.trig(instrument-1)
+           engine.trig(sample-1)
          end
        end
        state.position = (state.position % 16) + 1
@@ -136,14 +135,14 @@
      end
    #+END_SRC
    
-   It's fairly simple. We check all the instruments at our current position in
-   the sequence, and if they have a trigger we call =engine.trig=.
+   It's fairly simple. We check each sample at our current position in
+   the sequence, and if it's triggered we call =engine.trig=.
 
    TODO: It's probably way better to use engine.multiTrig here, and store
    triggers as a table of 0s and 1s.
    
    Once we've triggered sounds, we want to move to the next step in the sequence
-   by modifying state. That mod 16 makes the sequence loops.
+   by modifying state. That mod 16 makes the sequence loop.
    
    And /finally/ we want to redraw the grid every step. We'll take a look at the
    function [[*Let there be light!][later]].
@@ -255,12 +254,12 @@
      function grid_redraw()
        g.all(0)
        for step, value in pairs(state.steps) do
-         for instrument, trigged in pairs(value) do
+         for y, triggered in pairs(value) do
            if step == state.position then
-             g.led(step, instrument, 5)
+             g.led(step, y, 5)
            end
-           if trigged then
-             g.led(step,instrument, 10)
+           if triggered then
+             g.led(step, y, 10)
            end
          end
        end
