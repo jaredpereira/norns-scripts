@@ -120,7 +120,7 @@
     The important part here is =clk.on_step= countStep=. =countStep= is
     the function that will be called at ever beat of the clock.
     
-** Running our beat
+** Playing the beat
    Now let's get into =countStep=.
    
    #+BEGIN_SRC lua :tangle yes
@@ -146,7 +146,7 @@
    
    And /finally/ we want to redraw the grid every step. We'll take a look at the
    function [[*Let there be light!][later]].
-** Getting some input
+** Responding to input
    So we can actually make any noise yet as there's no way to actually create a
    sequence. For that we need to take input from the grid and the norns in order
    to modify the state.
@@ -206,45 +206,46 @@
     that with a relatively small amount of code you can make and modify robust
     instruments. It's always exciting when you add a few lines for a whole new
     feature in your sequencer.
-** Running actions
-   Okay let's actually get to those functions our inputs are calling. Each of
-   these functions are fairly small and self explanatory. The reason we want to
-   decouple them is so that we can have one place where we view all the
-   functions for changing state, and the code for taking input only decides what
-   input triggers what changes, /not/ how those changes are implemented. 
+*** Running actions
+    Okay let's actually get to those functions our inputs are calling. Each of
+    these functions are fairly small and self explanatory. The reason we want to
+    decouple them is so that we can have one place where we view all the
+    functions for changing state, and the code for taking input only decides what
+    input triggers what changes, /not/ how those changes are implemented. 
 
-   #+BEGIN_SRC lua :tangle yes
-     ------ ACTIONS ------
+    #+BEGIN_SRC lua :tangle yes
+      ------ ACTIONS ------
 
-     function toggleStep(x,y)
-       state.steps[x][y] = state.steps[x][y] == false
-       grid_redraw()
-     end
+      function toggleStep(x,y)
+        state.steps[x][y] = state.steps[x][y] == false
+        grid_redraw()
+      end
 
-     function setPosition(x)
-       state.position = x
-       grid_redraw()
-     end
+      function setPosition(x)
+        state.position = x
+        grid_redraw()
+      end
 
-     function toggleClock()
-       if state.clock then
-         clk:stop()
-       else
-         clk:start()
-       end
-       state.clock = state.clock == false
-     end
+      function toggleClock()
+        if state.clock then
+          clk:stop()
+        else
+          clk:start()
+        end
+        state.clock = state.clock == false
+      end
 
-     function clearPattern()
-       for i=1,16 do
-         state.steps[i] = {false,false,false,false}
-       end
-     end
-   #+END_SRC
+      function clearPattern()
+        for i=1,16 do
+          state.steps[i] = {false,false,false,false}
+        end
+      end
+    #+END_SRC
    
-   for some of these actions we want to have immediate feedback, and so we call
-   the =grid_redraw()= function to draw the interface.
-** Let there be light!
+    for some of these actions we want to have immediate feedback, and so we call
+    the =grid_redraw()= function to draw the interface.
+** Building the UI
+   
    Speaking of which, we've been operating in the dark till now. Let's see if we
    can define =grid_redraw()= and render some lights.
    
@@ -290,6 +291,7 @@
       end
 
     #+END_SRC
+
 ** Future Features
    
    This is really just a foundation for me to build on top of. There are a
