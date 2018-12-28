@@ -20,6 +20,7 @@ local state = {
   activeSequence = 1,
   clock = true,
   position = 1,
+  copying = 0
 }
 
 function init()
@@ -72,17 +73,25 @@ function g.event(x,y,z)
     setPosition(x)
   end
 
-  if y == 6 and x <= 8 and z  == 0 then
-    changeActiveSequence(x)
+  if y == 6 and x <=8 then
+    if z == 1 and state.copying == 0 then
+      state.copying = x
+      changeActiveSequence(x)
+    end
+    if z == 0 then
+      if state.copying == x then
+        state.copying = 0
+      else
+        copySequence(x)
+      end
+    end
   end
 end
 
 function key(n, z)
-  if n == 2 and z == 1 then
+  if n == 2 and z == 0 then
     toggleClock()
-  end
-
-  if n == 3 and z == 1 then
+  elseif n == 3 and z == 0 then
     clearPattern()
   end
 end
@@ -113,11 +122,25 @@ function clearPattern()
   for i=1,16 do
     state.sequences[state.activeSequence][i] = {false,false,false,false}
   end
+  grid_redraw()
 end
 
 function changeActiveSequence(x)
   state.activeSequence = x
   grid_redraw()
+end
+
+function toggleCopying()
+  state.copying = state.copying == false
+end
+
+function copySequence(x)
+  if state.copying == 0 then return end
+  for step, value in pairs(state.sequences[state.copying]) do
+    for sample, triggered in pairs(value) do
+      state.sequences[x][step][sample] = triggered
+    end
+  end
 end
 
 ------- UI -------
@@ -137,6 +160,7 @@ function grid_redraw()
   for i=1,8 do
     g.led(i,6,3)
   end
+
   g.led(state.activeSequence, 6, 10)
   g.refresh()
 end

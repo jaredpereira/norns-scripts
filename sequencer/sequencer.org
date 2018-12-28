@@ -39,6 +39,7 @@
         activeSequence = 1,
         clock = true,
         position = 1,
+        copying = 0
       }
     #+END_SRC
     
@@ -58,6 +59,8 @@
     *clock* defines whether the clock is currently running.
     
     *position* tells us at what step in the sequence we're currently at.
+    
+    *copying* is whether or not we're trying to copy a sequence 
 *** An init function
     Next up we'll write an =init= function, which will set up everything for our
     script to run.
@@ -179,8 +182,18 @@
           setPosition(x)
         end
 
-        if y == 6 and x <= 8 and z  == 0 then
-          changeActiveSequence(x)
+        if y == 6 and x <=8 then
+          if z == 1 and state.copying == 0 then
+            state.copying = x
+            changeActiveSequence(x)
+          end
+          if z == 0 then
+            if state.copying == x then
+              state.copying = 0
+            else
+              copySequence(x)
+            end
+          end
         end
       end
     #+END_SRC
@@ -205,11 +218,9 @@
 
     #+BEGIN_SRC lua :tangle yes
       function key(n, z)
-        if n == 2 and z == 1 then
+        if n == 2 and z == 0 then
           toggleClock()
-        end
-
-        if n == 3 and z == 1 then
+        elseif n == 3 and z == 0 then
           clearPattern()
         end
       end
@@ -218,13 +229,7 @@
     If you press button 2 we call =toggleClock= to play or pause the sequence.
     If you press button 3 we call =clearPattern= to clear all the triggers in
     the sequence.
-*** Thoughts on interfaces
-    This is actually one of the simplest things in the script, but it's one of
-    the most rewarding to develop. The exciting thing about the norns to me is
-    that with a relatively small amount of code you can make and modify robust
-    instruments. It's always exciting when you add a few lines for a whole new
-    feature in your sequencer.
-*** Running actions
+*** Implementing actions
     Okay let's actually get to those functions our inputs are calling. Each of
     these functions are fairly small and self explanatory. The reason we want to
     decouple them is so that we can have one place where we view all the
@@ -258,11 +263,25 @@
         for i=1,16 do
           state.sequences[state.activeSequence][i] = {false,false,false,false}
         end
+        grid_redraw()
       end
 
       function changeActiveSequence(x)
         state.activeSequence = x
         grid_redraw()
+      end
+
+      function toggleCopying()
+        state.copying = state.copying == false
+      end
+
+      function copySequence(x)
+        if state.copying == 0 then return end
+        for step, value in pairs(state.sequences[state.copying]) do
+          for sample, triggered in pairs(value) do
+            state.sequences[x][step][sample] = triggered
+          end
+        end
       end
     #+END_SRC
    
@@ -291,6 +310,7 @@
        for i=1,8 do
          g.led(i,6,3)
        end
+
        g.led(state.activeSequence, 6, 10)
        g.refresh()
      end
