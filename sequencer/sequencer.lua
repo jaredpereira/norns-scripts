@@ -16,16 +16,19 @@ local BeatClock = require 'beatclock'
 local clk = BeatClock.new()
 
 local state = {
-  steps = {},
+  sequences = {},
+  activeSequence = 1,
   clock = true,
   position = 1,
 }
 
 function init()
-  -- State
-  for i=1,16 do
-    table.insert(state.steps, {false,false,false,false})
-  end
+  -- BeatClock
+  clk.on_step = countStep
+  clk.on_select_internal = function() clk:start() end
+  
+  clk:add_clock_params()
+  clk:start()
 
   -- Ack setup
   for channel=1,4 do
@@ -37,16 +40,19 @@ function init()
   params:bang()
   
 
-  -- BeatClock
-  clk.on_step = countStep
-  clk.on_select_internal = function() clk:start() end
-  
-  clk:add_clock_params()
-  clk:start()
+  -- State
+  for i=1,8 do
+    local sequence = {}
+    for i=1,16 do
+      table.insert(sequence, {false,false,false,false})
+    end
+    table.insert(state.sequences, sequence)
+  end
 end
 
 function countStep()
-  for sample, triggered in pairs(state.steps[state.position]) do
+  local step = state.sequences[state.activeSequence][state.position]
+  for sample, triggered in pairs(step) do
     if triggered then
       engine.trig(sample-1)
     end
@@ -65,6 +71,10 @@ function g.event(x,y,z)
   if y == 5 and z==1 then
     setPosition(x)
   end
+
+  if y == 6 and x <= 8 and z  == 0 then
+    changeActiveSequence(x)
+  end
 end
 
 function key(n, z)
@@ -80,7 +90,8 @@ end
 ------ ACTIONS ------
 
 function toggleStep(x,y)
-  state.steps[x][y] = state.steps[x][y] == false
+  local step = state.sequences[state.activeSequence][x][y]
+  state.sequences[state.activeSequence][x][y] = step == false
   grid_redraw()
 end
 
@@ -100,15 +111,20 @@ end
 
 function clearPattern()
   for i=1,16 do
-    state.steps[i] = {false,false,false,false}
+    state.sequences[state.activeSequence][i] = {false,false,false,false}
   end
+end
+
+function changeActiveSequence(x)
+  state.activeSequence = x
+  grid_redraw()
 end
 
 ------- UI -------
 
 function grid_redraw()
   g.all(0)
-  for step, value in pairs(state.steps) do
+  for step, value in pairs(state.sequences[state.activeSequence]) do
     for y, triggered in pairs(value) do
       if step == state.position then
         g.led(step, y, 5)
@@ -118,6 +134,10 @@ function grid_redraw()
       end
     end
   end
+  for i=1,8 do
+    g.led(i,6,3)
+  end
+  g.led(state.activeSequence, 6, 10)
   g.refresh()
 end
 

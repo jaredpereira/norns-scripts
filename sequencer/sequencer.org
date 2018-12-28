@@ -12,8 +12,8 @@
    
 *** Our Requirements
     We need to import a couple requirements. First is an engine, as norns script
-    on it's own doesn't actually make any noise. Then we need to connec to a
-    grid (which you need to actually use this sequencer). Finally we'll irequire
+    on it's own doesn't actually make any noise. Then we need to connect to a
+    grid (which you need to actually use this sequencer). Finally we'll require
     and initialize a BeatClock which we'll use to run our sequencer.
 
     #+BEGIN_SRC lua :tangle yes
@@ -35,7 +35,8 @@
       local clk = BeatClock.new()
 
       local state = {
-        steps = {},
+        sequences = {},
+        activeSequence = 1,
         clock = true,
         position = 1,
       }
@@ -49,8 +50,10 @@
 
     Let's break it down.
 
-    *steps* is the heart of our script. It will keep track of all 16 steps and
-    what samples are triggered.
+    *sequences* is the heart of our script. It will keep track of all 16 steps
+    sequences and what samples are triggered in them.
+    
+    *activeSequence*: This is which sequence is currently selected.
     
     *clock* defines whether the clock is currently running.
     
@@ -61,14 +64,14 @@
     
     #+BEGIN_SRC lua :tangle yes :noweb yes
       function init()
-        -- State
-        <<state>>
+        -- BeatClock
+        <<clock>>
 
         -- Ack setup
         <<ack-setup>>
 
-        -- BeatClock
-        <<clock>>
+        -- State
+        <<state>>
       end
 
     #+END_SRC
@@ -77,14 +80,21 @@
 *** Setting up the state
     #+NAME: state
     #+BEGIN_SRC lua
-      for i=1,16 do
-        table.insert(state.steps, {false,false,false,false})
+      for i=1,8 do
+        local sequence = {}
+        for i=1,16 do
+          table.insert(sequence, {false,false,false,false})
+        end
+        table.insert(state.sequences, sequence)
       end
     #+END_SRC
     
-    We need to immediatly create our =steps= array. This would be tedious to
-    write out by hand, so we use a for loop to create 16 arrays, each containing
-    4 booleans, one for each sample. 
+    We need to create an array for each sequence (we allow a max of 8). Each
+    sequence contains sixteen steps, which can trigger 4 different samples. So
+    we have 8 sequence arrays, each containing 16 arrays, containing 4 booleans.
+
+    This would be tedious to write out by hand, so we use a for loop to
+    initialize everything.
     
 *** Initializing Ack
     Next we need to set up the engine. I'm using [[https://monome.org/docs/norns/dust/jah/ack/][Ack]] , which is a simple sample
@@ -125,7 +135,8 @@
    
    #+BEGIN_SRC lua :tangle yes
      function countStep()
-       for sample, triggered in pairs(state.steps[state.position]) do
+       local step = state.sequences[state.activeSequence][state.position]
+       for sample, triggered in pairs(step) do
          if triggered then
            engine.trig(sample-1)
          end
@@ -135,8 +146,8 @@
      end
    #+END_SRC
    
-   It's fairly simple. We check each sample at our current position in
-   the sequence, and if it's triggered we call =engine.trig=.
+   It's fairly simple. We check each sample at our current position in the
+   currently active sequence, and if it's triggered we call =engine.trig=.
 
    TODO: It's probably way better to use engine.multiTrig here, and store
    triggers as a table of 0s and 1s.
@@ -167,10 +178,14 @@
         if y == 5 and z==1 then
           setPosition(x)
         end
+
+        if y == 6 and x <= 8 and z  == 0 then
+          changeActiveSequence(x)
+        end
       end
     #+END_SRC
 
-    We have two events here. 
+    We have three two events here. 
 
     First, if you're pressing a button in the first 4 rows (y<=4), we want modify the
     sequence, and we want to do it when you lift your finger *off* the key (z==0). So
@@ -180,6 +195,9 @@
     Secondly, if you're pressing a key in the 5th row, we want to immediately
     (z==1) jump to that step in the sequence, so we call =setPosition= and pass
     it the x value. 
+    
+    Finally the first 8 buttons in the 6th row allow you to switch between
+    different sequences.
 *** The Norns
     To interact with buttons on the norns we define a function called =key=
     which takes =n=, the number of the button being pressed (1, 2, or 3) and
@@ -217,7 +235,8 @@
       ------ ACTIONS ------
 
       function toggleStep(x,y)
-        state.steps[x][y] = state.steps[x][y] == false
+        local step = state.sequences[state.activeSequence][x][y]
+        state.sequences[state.activeSequence][x][y] = step == false
         grid_redraw()
       end
 
@@ -237,8 +256,13 @@
 
       function clearPattern()
         for i=1,16 do
-          state.steps[i] = {false,false,false,false}
+          state.sequences[state.activeSequence][i] = {false,false,false,false}
         end
+      end
+
+      function changeActiveSequence(x)
+        state.activeSequence = x
+        grid_redraw()
       end
     #+END_SRC
    
@@ -254,7 +278,7 @@
 
      function grid_redraw()
        g.all(0)
-       for step, value in pairs(state.steps) do
+       for step, value in pairs(state.sequences[state.activeSequence]) do
          for y, triggered in pairs(value) do
            if step == state.position then
              g.led(step, y, 5)
@@ -264,6 +288,10 @@
            end
          end
        end
+       for i=1,8 do
+         g.led(i,6,3)
+       end
+       g.led(state.activeSequence, 6, 10)
        g.refresh()
      end
    #+END_SRC
@@ -272,6 +300,8 @@
    1. Light up every active trigger
    2. Light up a column of buttons on the active step, so you can see where the
       pattern is.
+   3. Light up the first 8 buttons in row 6 to show which correspond to
+      sequences, and light up the active sequence brighter.
 
    We do all this based on the state. First we iterate through all the steps in
    the sequence. If it's the active step, we light each led with a value of 5,
