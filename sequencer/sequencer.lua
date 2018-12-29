@@ -18,6 +18,11 @@ local clk = BeatClock.new()
 local state = {
   sequences = {},
   activeSequence = 1,
+  meta = {
+    sequence = {1},
+    position = 1,
+    mode = false
+  },
   clock = true,
   position = 1,
   copying = 0
@@ -52,11 +57,15 @@ function init()
 end
 
 function countStep()
-  local step = state.sequences[state.activeSequence][state.position]
+  local playingSequence = state.meta.sequence[state.meta.position]
+  local step = state.sequences[playingSequence][state.position]
   for sample, triggered in pairs(step) do
     if triggered then
       engine.trig(sample-1)
     end
+  end
+  if state.position == 16 then
+    state.meta.position = (state.meta.position % #state.meta.sequence) + 1
   end
   state.position = (state.position % 16) + 1
   grid_redraw()
@@ -65,6 +74,13 @@ end
 ------ EVENTS ------
 
 function g.event(x,y,z)
+  if state.meta.mode then
+    if z == 1 then
+      setMetaStep(x, y)
+    end
+    return
+  end
+
   if y <= 4 and z == 0 then
     toggleStep(x, y)
   end
@@ -89,6 +105,19 @@ function g.event(x,y,z)
 end
 
 function key(n, z)
+  if n == 1 and z == 1 then
+   toggleMetaMode()
+  end
+
+  if state.meta.mode and z == 0 then
+    if n ==2 then
+      decreaseMetaSequenceLength()
+    elseif n == 3 then
+      increaseMetaSequenceLength()
+    end
+    return
+  end
+
   if n == 2 and z == 0 then
     toggleClock()
   elseif n == 3 and z == 0 then
@@ -126,12 +155,39 @@ function clearPattern()
 end
 
 function changeActiveSequence(x)
+  if #state.meta.sequence == 1 then
+    state.meta.sequence[1] = x
+  end
   state.activeSequence = x
   grid_redraw()
 end
 
 function toggleCopying()
   state.copying = state.copying == false
+end
+
+function toggleMetaMode()
+  state.meta.mode = state.meta.mode == false
+end
+
+function setMetaStep(x, y)
+  if x <= #state.meta.sequence then
+    state.meta.sequence[x] = y
+  end
+end
+
+function increaseMetaSequenceLength()
+  local length = #state.meta.sequence
+  if length < 8 then
+    state.meta.sequence[length + 1] = 1
+  end
+end
+
+function decreaseMetaSequenceLength()
+  local length = #state.meta.sequence
+  if length > 1 then
+    state.meta.sequence[length] = nil
+  end
 end
 
 function copySequence(x)
@@ -147,6 +203,18 @@ end
 
 function grid_redraw()
   g.all(0)
+
+  if state.meta.mode then
+    for i=1,8 do
+      g.led(state.meta.position, i, 5)
+    end
+    for step, value in pairs(state.meta.sequence) do
+      g.led(step, value, 10)
+    end
+    g.refresh()
+    return
+  end
+
   for step, value in pairs(state.sequences[state.activeSequence]) do
     for y, triggered in pairs(value) do
       if step == state.position then
@@ -161,6 +229,7 @@ function grid_redraw()
     g.led(i,6,3)
   end
 
+  g.led(state.meta.sequence[state.meta.position], 6, 5)
   g.led(state.activeSequence, 6, 10)
   g.refresh()
 end
