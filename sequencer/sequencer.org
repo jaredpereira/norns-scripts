@@ -1,9 +1,10 @@
-* A Basic Sequencer
-  This is a basic sequencer I'm building to learn more about lua and the norns.
+#+TITLE: A Basic Sequence
+This is a basic sequencer I'm building to learn more about lua and the norns.
   
-  I want to use the grid as a 16 step sequencer with 4 sample tracks.
+It's a [[https://monome.org/docs/grid/][grid]] controlled 16 step sequencer with 4 sample tracks, 8 sequence slots
+and the ability to sequence your sequences.
   
-  You can view the full source [[https://gitlab.com/jaredpereira/norns-scripts/blob/master/sequencer/sequencer.lua][here]].
+You can view the full source [[https://gitlab.com/jaredpereira/norns-scripts/blob/master/sequencer/sequencer.lua][here]].
   
 ** Setting up the script
    Before we can get to the actual logic we need to set up the script. This
