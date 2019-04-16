@@ -18,10 +18,15 @@ local state = {
   meta = {
     sequence = {1},
     position = 1,
-    mode = false
   },
+  motion = {
+    selectedTrack = 1,
+    selectedNote = nil
+  },
+  mode = "sequence", --possible modes: sequence, meta, motion
   clock = true,
   position = 1,
+  queuedPosition = nil,
   copying = 0
 }
 
@@ -37,12 +42,11 @@ function init()
   ack.add_params()
   params:bang()
 
-
   -- State
   for i=1,8 do
     local sequence = {}
     for i=1,16 do
-      table.insert(sequence, {0,0,0,0})
+      table.insert(sequence, {0,0,0,0,0,0})
     end
     table.insert(state.sequences, sequence)
   end
@@ -52,65 +56,90 @@ function countStep()
   if state.position == 16 then
     state.meta.position = (state.meta.position % #state.meta.sequence) + 1
   end
-  state.position = (state.position % 16) + 1
+  if state.queuedPosition then
+    state.position = state.queuedPosition
+    state.queuedPosition = nil
+  else
+    state.position = (state.position % 16) + 1
+  end
   grid_redraw()
 
   local playingSequence = state.meta.sequence[state.meta.position]
   local step = state.sequences[playingSequence][state.position]
-  engine.multiTrig(step[1], step[2], step[3], step[4], 0, 0, 0 ,0)
+  engine.multiTrig(step[1], step[2], step[3], step[4], step[5], step[6], 0 ,0)
 end
 
 ------ EVENTS ------
 
 function g.key(x, y, z)
-  if state.meta.mode then
+  if state.mode == "meta" then
     if z == 1 then
       setMetaStep(x, y)
     end
     return
   end
 
-  if y <= 4 and z == 0 then
-    toggleStep(x, y)
-  end
-
-  if y == 5 and z==1 then
-    setPosition(x)
-  end
-
-  if y == 6 and x <=8 then
-    if z == 1 and state.copying == 0 then
-      state.copying = x
-      changeActiveSequence(x)
+  if state.mode == 'sequence' then
+    if y <= 6 and z == 0 then
+      toggleStep(x, y)
     end
-    if z == 0 then
-      if state.copying == x then
-        state.copying = 0
-      else
-        copySequence(x)
+
+    if y == 7 and z==1 then
+      setPosition(x)
+    end
+
+    if y == 8 and x <=8 then
+      if z == 1 and state.copying == 0 then
+        state.copying = x
+        changeActiveSequence(x)
+      end
+      if z == 0 then
+        if state.copying == x then
+          state.copying = 0
+        else
+          copySequence(x)
+        end
       end
     end
   end
+
+  if state.mode == 'motion' then
+    if y <= 6 and z == 1 then
+      setSelectedTrack(y)
+      setSelectedNote({x,y})
+    elseif y<=6 and z ==0 then
+      setSelectedNote(nil)
+    end
+  end
+
 end
 
 function key(n, z)
   if n == 1 and z == 1 then
-   toggleMetaMode()
-  end
-
-  if state.meta.mode and z == 0 then
-    if n ==2 then
-      decreaseMetaSequenceLength()
-    elseif n == 3 then
-      increaseMetaSequenceLength()
-    end
-    return
+    clearPattern()
   end
 
   if n == 2 and z == 1 then
     toggleClock()
   elseif n == 3 and z == 0 then
-    clearPattern()
+    toggleMode()
+  end
+end
+
+function enc(n, direction)
+  print(n, direction)
+  if n == 3 then
+    setBPM(direction)
+  end
+  if (state.mode == "meta") then
+    if n == 2 then
+     changeMetaLength(direction) 
+    end
+  end
+  if state.mode == 'motion' then
+    if n == 2 then
+      setPitch(direction)
+    end
   end
 end
 
@@ -123,7 +152,7 @@ function toggleStep(x,y)
 end
 
 function setPosition(x)
-  state.position = x
+  state.queuedPosition = x
   grid_redraw()
 end
 
@@ -139,7 +168,7 @@ end
 
 function clearPattern()
   for i=1,16 do
-    state.sequences[state.activeSequence][i] = {0,0,0,0}
+    state.sequences[state.activeSequence][i] = {0,0,0,0,0,0}
   end
   grid_redraw()
 end
@@ -156,28 +185,47 @@ function toggleCopying()
   state.copying = state.copying == false
 end
 
-function toggleMetaMode()
-  state.meta.mode = state.meta.mode == false
+function toggleMode()
+  if state.mode == "sequence" then
+    state.mode = "motion"
+  elseif state.mode == "motion" then
+    state.mode = "meta"
+  elseif state.mode == "meta" then
+    state.mode = "sequence"
+  end
+  redraw()
 end
 
 function setMetaStep(x, y)
   if x <= #state.meta.sequence then
     state.meta.sequence[x] = y
   end
+  grid_redraw()
 end
 
-function increaseMetaSequenceLength()
+function changeMetaLength(x)
   local length = #state.meta.sequence
-  if length < 8 then
-    state.meta.sequence[length + 1] = 1
+  if x == 1 then
+    if length < 8 then
+      state.meta.sequence[length + 1] = 1
+    end
+  elseif length > state.meta.position then
+      state.meta.sequence[length] = nil 
   end
+  grid_redraw()
+end 
+
+function setSelectedTrack(track)
+  state.motion.selectedTrack = track
 end
 
-function decreaseMetaSequenceLength()
-  local length = #state.meta.sequence
-  if length > 1 then
-    state.meta.sequence[length] = nil
-  end
+function setSelectedNote(note)
+  state.motion.selectedNote = note
+end
+
+function setPitch(direction)
+  local param = tostring(state.motion.selectedTrack) .. '_speed'
+  params:set(param, params:get(param) + (direction/10))
 end
 
 function copySequence(x)
@@ -189,13 +237,19 @@ function copySequence(x)
   end
 end
 
+function setBPM(x)
+  local bpm = params:get('bpm')
+  params:set('bpm', bpm + x)
+  redraw()
+end
+
 
 ------- UI -------
 
 function grid_redraw()
   g:all(0)
 
-  if state.meta.mode then
+  if state.mode == 'meta' then
     for i=1,8 do
       g:led(state.meta.position, i, 5)
     end
@@ -204,6 +258,20 @@ function grid_redraw()
     end
     g:refresh()
     return
+  end
+
+
+  if state.mode == 'motion' then
+    for i=1,16 do
+      g:led(i, state.motion.selectedTrack, 5)
+    end
+    if state.motion.selectedNote then
+      g:led(state.motion.selectedNote[1], state.motion.selectedNote[2], 10)
+    end
+  end
+
+  for i=1,8 do
+    g:led(i,8,3)
   end
 
   for step, value in pairs(state.sequences[state.activeSequence]) do
@@ -216,22 +284,34 @@ function grid_redraw()
       end
     end
   end
-  for i=1,8 do
-    g:led(i,6,3)
-  end
 
-  g:led(state.meta.sequence[state.meta.position], 6, 5)
-  g:led(state.activeSequence, 6, 10)
+  g:led(state.meta.sequence[state.meta.position], 8, 5)
+  g:led(state.activeSequence, 8, 10)
   g:refresh()
 end
 
 function redraw()
   screen.clear()
-  screen.move(10,40)
+  screen.font_face(1)
+  screen.font_size(8)
+
+  -- Draw play/pause
+  screen.move(10,10)
   if state.clock then
     screen.text('playing')
-  else 
+  else
     screen.text('paused')
   end
+
+  -- Draw BPM
+  screen.move(90, 10)
+  screen.text("BPM: " .. params:get("bpm"))
+
+  -- Draw Mode
+  screen.font_face(10)
+  screen.font_size(20)
+  screen.move(10, 48)
+  screen.text(state.mode)
+
   screen.update()
 end
