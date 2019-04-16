@@ -51,14 +51,15 @@ function init()
 end
 
 function countStep()
-  local playingSequence = state.meta.sequence[state.meta.position]
-  local step = state.sequences[playingSequence][state.position]
-  engine.multiTrig(step[1], step[2], step[3], step[4], 0, 0, 0 ,0)
   if state.position == 16 then
     state.meta.position = (state.meta.position % #state.meta.sequence) + 1
   end
   state.position = (state.position % 16) + 1
   grid_redraw()
+
+  local playingSequence = state.meta.sequence[state.meta.position]
+  local step = state.sequences[playingSequence][state.position]
+  engine.multiTrig(step[1], step[2], step[3], step[4], 0, 0, 0 ,0)
 end
 
 ------ EVENTS ------
