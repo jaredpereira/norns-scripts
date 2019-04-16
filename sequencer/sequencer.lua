@@ -12,8 +12,6 @@ local g = grid.connect()
 local BeatClock = require 'beatclock'
 local clk = BeatClock.new()
 
-local actions = require('jared/sequencer/lib/actions')
-
 local state = {
   sequences = {},
   activeSequence = 1,
