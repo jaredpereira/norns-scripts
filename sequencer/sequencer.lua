@@ -64,7 +64,6 @@ end
 ------ EVENTS ------
 
 function g.key(x, y, z)
-  print(x,y,z)
   if state.meta.mode then
     if z == 1 then
       setMetaStep(x, y)
