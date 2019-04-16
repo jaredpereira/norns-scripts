@@ -1,5 +1,5 @@
 -- jss (jared's simple sequencer)
--- v 0.0.2
+-- v 0.0.3
 --
 -- requires a grid
 -- press any key in rows 1-4
@@ -7,13 +7,12 @@
 -- row 5 jumps to step
 
 engine.name = 'Ack'
-local ack = require 'jah/ack'
-
+local ack = require'ack/lib/ack'
 local g = grid.connect()
-
 local BeatClock = require 'beatclock'
-
 local clk = BeatClock.new()
+
+local actions = require('jared/sequencer/lib/actions')
 
 local state = {
   sequences = {},
@@ -32,25 +31,20 @@ function init()
   -- BeatClock
   clk.on_step = countStep
   clk.on_select_internal = function() clk:start() end
-  
+
   clk:add_clock_params()
   clk:start()
 
   -- Ack setup
-  for channel=1,4 do
-    ack.add_channel_params(channel)
-  end
-  ack.add_effects_params()
-  
-  params:read("tehn/playfair.pset")
+  ack.add_params()
   params:bang()
-  
+
 
   -- State
   for i=1,8 do
     local sequence = {}
     for i=1,16 do
-      table.insert(sequence, {false,false,false,false})
+      table.insert(sequence, {0,0,0,0})
     end
     table.insert(state.sequences, sequence)
   end
@@ -59,11 +53,7 @@ end
 function countStep()
   local playingSequence = state.meta.sequence[state.meta.position]
   local step = state.sequences[playingSequence][state.position]
-  for sample, triggered in pairs(step) do
-    if triggered then
-      engine.trig(sample-1)
-    end
-  end
+  engine.multiTrig(step[1], step[2], step[3], step[4], 0, 0, 0 ,0)
   if state.position == 16 then
     state.meta.position = (state.meta.position % #state.meta.sequence) + 1
   end
@@ -73,7 +63,8 @@ end
 
 ------ EVENTS ------
 
-function g.event(x,y,z)
+function g.key(x, y, z)
+  print(x,y,z)
   if state.meta.mode then
     if z == 1 then
       setMetaStep(x, y)
@@ -118,7 +109,7 @@ function key(n, z)
     return
   end
 
-  if n == 2 and z == 0 then
+  if n == 2 and z == 1 then
     toggleClock()
   elseif n == 3 and z == 0 then
     clearPattern()
@@ -129,7 +120,7 @@ end
 
 function toggleStep(x,y)
   local step = state.sequences[state.activeSequence][x][y]
-  state.sequences[state.activeSequence][x][y] = step == false
+  state.sequences[state.activeSequence][x][y] = (step + 1) % 2
   grid_redraw()
 end
 
@@ -145,11 +136,12 @@ function toggleClock()
     clk:start()
   end
   state.clock = state.clock == false
+  redraw()
 end
 
 function clearPattern()
   for i=1,16 do
-    state.sequences[state.activeSequence][i] = {false,false,false,false}
+    state.sequences[state.activeSequence][i] = {0,0,0,0}
   end
   grid_redraw()
 end
@@ -199,43 +191,49 @@ function copySequence(x)
   end
 end
 
+
 ------- UI -------
 
 function grid_redraw()
-  g.all(0)
+  g:all(0)
 
   if state.meta.mode then
     for i=1,8 do
-      g.led(state.meta.position, i, 5)
+      g:led(state.meta.position, i, 5)
     end
     for step, value in pairs(state.meta.sequence) do
-      g.led(step, value, 10)
+      g:led(step, value, 10)
     end
-    g.refresh()
+    g:refresh()
     return
   end
 
   for step, value in pairs(state.sequences[state.activeSequence]) do
     for y, triggered in pairs(value) do
       if step == state.position then
-        g.led(step, y, 5)
+        g:led(step, y, 5)
       end
-      if triggered then
-        g.led(step, y, 10)
+      if triggered == 1 then
+        g:led(step, y, 10)
       end
     end
   end
   for i=1,8 do
-    g.led(i,6,3)
+    g:led(i,6,3)
   end
 
-  g.led(state.meta.sequence[state.meta.position], 6, 5)
-  g.led(state.activeSequence, 6, 10)
-  g.refresh()
+  g:led(state.meta.sequence[state.meta.position], 6, 5)
+  g:led(state.activeSequence, 6, 10)
+  g:refresh()
 end
 
 function redraw()
   screen.clear()
-  screen.text('jss')
+  screen.move(10,40)
+  if state.clock then
+    screen.text('playing')
+  else 
+    screen.text('paused')
+  end
   screen.update()
 end
