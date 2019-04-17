@@ -46,7 +46,11 @@ function init()
   for i=1,8 do
     local sequence = {}
     for i=1,16 do
-      table.insert(sequence, {0,0,0,0,0,0})
+      local step = {}
+      for j=1,6 do
+        table.insert(step, {trig=0, pitch=100})
+      end
+      table.insert(sequence, step)
     end
     table.insert(state.sequences, sequence)
   end
@@ -66,7 +70,7 @@ function countStep()
 
   local playingSequence = state.meta.sequence[state.meta.position]
   local step = state.sequences[playingSequence][state.position]
-  engine.multiTrig(step[1], step[2], step[3], step[4], step[5], step[6], 0 ,0)
+  engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
 end
 
 ------ EVENTS ------
@@ -146,8 +150,8 @@ end
 ------ ACTIONS ------
 
 function toggleStep(x,y)
-  local step = state.sequences[state.activeSequence][x][y]
-  state.sequences[state.activeSequence][x][y] = (step + 1) % 2
+  local step = state.sequences[state.activeSequence][x][y].trig
+  state.sequences[state.activeSequence][x][y].trig = (step + 1) % 2
   grid_redraw()
 end
 
@@ -168,7 +172,10 @@ end
 
 function clearPattern()
   for i=1,16 do
-    state.sequences[state.activeSequence][i] = {0,0,0,0,0,0}
+    state.sequences[state.activeSequence][i] = {
+      {trig=0, pitch=100},{trig=0, pitch=100},{trig=0, pitch=100},
+      {trig=0, pitch=100},{trig=0, pitch=100},{trig=0, pitch=100}
+      }
   end
   grid_redraw()
 end
@@ -279,7 +286,7 @@ function grid_redraw()
       if step == state.position then
         g:led(step, y, 5)
       end
-      if triggered == 1 then
+      if triggered.trig == 1 then
         g:led(step, y, 10)
       end
     end
