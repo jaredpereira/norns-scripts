@@ -117,9 +117,9 @@ function g.key(x, y, z)
   if state.mode == 'motion' then
     if y <= 6 and z == 1 then
       setSelectedTrack(y)
-      setSelectedNote(x)
+      addSelectedNote(x)
     elseif y<=6 and z ==0 then
-      setSelectedNote(nil)
+      removeSelectedNote(x)
     end
   end
 
@@ -234,27 +234,40 @@ function setSelectedTrack(track)
   redraw()
 end
 
-function setSelectedNote(note)
-  state.motion.note = note
+function addSelectedNote(note)
+  table.insert(state.motion.notes, note)
+  grid_redraw()
+  redraw()
+end
+
+function removeSelectedNote(note)
+  for key, value in pairs(state.motion.notes) do
+    if value == note then
+      table.remove(state.motion.notes, key)
+    end
+  end
+  grid_redraw()
   redraw()
 end
 
 function setPitch(direction)
-  local param = tostring(state.motion.track) .. '_speed'
-
-
   local playingSequence = state.meta.sequence[state.meta.position]
-  local step = state.sequences[playingSequence][state.position][state.motion.track]
+  local sequence = state.sequences[playingSequence]
 
-  if state.motion.note then
-    state.sequences[playingSequence][state.motion.note][state.motion.track].pitch =
-      state.sequences[playingSequence][state.motion.note][state.motion.track].pitch  + (direction/10)
+  if #state.motion.notes > 0 then
+    local basePitch = sequence[state.motion.notes[1]][state.motion.track].pitch
+    for key, value in pairs(state.motion.notes) do
+      local note = sequence[value][state.motion.track]
+      note.pitch = basePitch + (direction/20)
+    end
     redraw()
     return
   end
 
-  state.sequences[playingSequence][state.position][state.motion.track].pitch = step.pitch + (direction/10)
-  param:set(param, state.sequences[playingSequence][state.position][state.motion.track].pitch)
+  local step = sequence[state.position][state.motion.track]
+  local param = tostring(state.motion.track) .. '_speed'
+  step.pitch = step.pitch + (direction/20)
+  param:set(param, step.pitch)
   redraw()
 end
 
@@ -295,8 +308,10 @@ function grid_redraw()
     for i=1,16 do
       g:led(i, state.motion.track, 5)
     end
-    if state.motion.note then
-      g:led(state.motion.note, state.motion.track, 10)
+    if #state.motion.notes > 0 then
+      for key, value in pairs(state.motion.notes) do
+        g:led(value, state.motion.track, 10)
+      end
     end
   end
 
@@ -343,13 +358,13 @@ function redraw()
   screen.move(10, 48)
   screen.text(state.mode)
 
-  if state.motion.note then
+  if #state.motion.notes > 0 then
     screen.font_face(1)
     screen.font_size(8)
     screen.move(80, 40)
     local playingSequence = state.meta.sequence[state.meta.position]
-    local pitch = state.sequences[playingSequence][state.motion.note][state.motion.track].pitch
-    screen.text(pitch)
+    local pitch = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch
+    screen.text('speed: ' .. pitch)
   end
 
   screen.update()
