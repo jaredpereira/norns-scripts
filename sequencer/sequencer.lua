@@ -94,24 +94,6 @@ function g.key(x, y, z)
     if y <= 6 and z == 0 then
       toggleStep(x, y)
     end
-
-    if y == 7 and z==1 then
-      setPosition(x)
-    end
-
-    if y == 8 and x <=8 then
-      if z == 1 and state.copying == 0 then
-        state.copying = x
-        changeActiveSequence(x)
-      end
-      if z == 0 then
-        if state.copying == x then
-          state.copying = 0
-        else
-          copySequence(x)
-        end
-      end
-    end
   end
 
   if state.mode == 'motion' then
@@ -120,6 +102,24 @@ function g.key(x, y, z)
       addSelectedNote(x)
     elseif y<=6 and z ==0 then
       removeSelectedNote(x)
+    end
+  end
+
+  if y == 7 and z==1 then
+    setPosition(x)
+  end
+
+  if y == 8 and x <=8 then
+    if z == 1 and state.copying == 0 then
+      state.copying = x
+      changeActiveSequence(x)
+    end
+    if z == 0 then
+      if state.copying == x then
+        state.copying = 0
+      else
+        copySequence(x)
+      end
     end
   end
 
