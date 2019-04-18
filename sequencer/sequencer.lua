@@ -21,7 +21,7 @@ local state = {
   },
   motion = {
     track = 1,
-    note = nil
+    notes = {}
   },
   mode = "sequence", --possible modes: sequence, meta, motion
   clock = true,
@@ -132,8 +132,6 @@ function key(n, z)
 
   if n == 2 and z == 1 then
     toggleClock()
-  elseif n == 3 and z == 0 then
-    toggleMode()
   end
 end
 
@@ -150,6 +148,10 @@ function enc(n, direction)
     if n == 2 then
       setPitch(direction)
     end
+  end
+
+  if n == 1 then
+    changeMode(direction)
   end
 end
 
@@ -198,13 +200,19 @@ function toggleCopying()
   state.copying = state.copying == false
 end
 
-function toggleMode()
+function changeMode(direction)
   if state.mode == "sequence" then
-    state.mode = "motion"
+    if direction == 1 then state.mode = "motion"
+    else state.mode = 'meta'
+    end
   elseif state.mode == "motion" then
-    state.mode = "meta"
+    if direction == 1 then state.mode = 'meta'
+    else state.mode = 'sequence'
+    end
   elseif state.mode == "meta" then
-    state.mode = "sequence"
+    if direction == 1 then state.mode = "sequence"
+      else state.mode = "motion"
+    end
   end
   redraw()
   grid_redraw()
@@ -224,10 +232,10 @@ function changeMetaLength(x)
       state.meta.sequence[length + 1] = 1
     end
   elseif length > state.meta.position then
-      state.meta.sequence[length] = nil 
+      state.meta.sequence[length] = nil
   end
   grid_redraw()
-end 
+end
 
 function setSelectedTrack(track)
   state.motion.track = track
