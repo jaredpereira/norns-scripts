@@ -20,8 +20,8 @@ local state = {
     position = 1,
   },
   motion = {
-    selectedTrack = 1,
-    selectedNote = nil
+    track = 1,
+    note = nil
   },
   mode = "sequence", --possible modes: sequence, meta, motion
   clock = true,
@@ -49,7 +49,7 @@ function init()
     for i=1,16 do
       local step = {}
       for j=1,6 do
-        table.insert(step, {trig=0, pitch=100})
+        table.insert(step, {trig=0, pitch=1})
       end
       table.insert(sequence, step)
     end
@@ -69,8 +69,14 @@ function countStep()
   end
   grid_redraw()
 
+
   local playingSequence = state.meta.sequence[state.meta.position]
   local step = state.sequences[playingSequence][state.position]
+
+  for i=1,6 do
+    local param = tostring(i) .. '_speed'
+    params:set(param, step[i].pitch)
+  end
   engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
 end
 
@@ -111,7 +117,7 @@ function g.key(x, y, z)
   if state.mode == 'motion' then
     if y <= 6 and z == 1 then
       setSelectedTrack(y)
-      setSelectedNote({x,y})
+      setSelectedNote(x)
     elseif y<=6 and z ==0 then
       setSelectedNote(nil)
     end
@@ -132,13 +138,12 @@ function key(n, z)
 end
 
 function enc(n, direction)
-  print(n, direction)
   if n == 3 then
     setBPM(direction)
   end
   if (state.mode == "meta") then
     if n == 2 then
-     changeMetaLength(direction) 
+     changeMetaLength(direction)
     end
   end
   if state.mode == 'motion' then
@@ -174,8 +179,8 @@ end
 function clearPattern()
   for i=1,16 do
     state.sequences[state.activeSequence][i] = {
-      {trig=0, pitch=100},{trig=0, pitch=100},{trig=0, pitch=100},
-      {trig=0, pitch=100},{trig=0, pitch=100},{trig=0, pitch=100}
+      {trig=0, pitch=1},{trig=0, pitch=1},{trig=0, pitch=1},
+      {trig=0, pitch=1},{trig=0, pitch=1},{trig=0, pitch=1}
       }
   end
   grid_redraw()
@@ -202,6 +207,7 @@ function toggleMode()
     state.mode = "sequence"
   end
   redraw()
+  grid_redraw()
 end
 
 function setMetaStep(x, y)
@@ -214,7 +220,7 @@ end
 function changeMetaLength(x)
   local length = #state.meta.sequence
   if x == 1 then
-    if length < 8 then
+    if length < 16 then
       state.meta.sequence[length + 1] = 1
     end
   elseif length > state.meta.position then
@@ -224,23 +230,39 @@ function changeMetaLength(x)
 end 
 
 function setSelectedTrack(track)
-  state.motion.selectedTrack = track
+  state.motion.track = track
+  redraw()
 end
 
 function setSelectedNote(note)
-  state.motion.selectedNote = note
+  state.motion.note = note
+  redraw()
 end
 
 function setPitch(direction)
-  local param = tostring(state.motion.selectedTrack) .. '_speed'
-  params:set(param, params:get(param) + (direction/10))
+  local param = tostring(state.motion.track) .. '_speed'
+
+
+  local playingSequence = state.meta.sequence[state.meta.position]
+  local step = state.sequences[playingSequence][state.position][state.motion.track]
+
+  if state.motion.note then
+    state.sequences[playingSequence][state.motion.note][state.motion.track].pitch =
+      state.sequences[playingSequence][state.motion.note][state.motion.track].pitch  + (direction/10)
+    redraw()
+    return
+  end
+
+  state.sequences[playingSequence][state.position][state.motion.track].pitch = step.pitch + (direction/10)
+  param:set(param, state.sequences[playingSequence][state.position][state.motion.track].pitch)
+  redraw()
 end
 
 function copySequence(x)
   if state.copying == 0 then return end
   for step, value in pairs(state.sequences[state.copying]) do
-    for sample, triggered in pairs(value) do
-      state.sequences[x][step][sample] = triggered
+    for sample, note in pairs(value) do
+      state.sequences[x][step][sample] = {trig=note.trig, pitch=note.pitch}
     end
   end
 end
@@ -271,10 +293,10 @@ function grid_redraw()
 
   if state.mode == 'motion' then
     for i=1,16 do
-      g:led(i, state.motion.selectedTrack, 5)
+      g:led(i, state.motion.track, 5)
     end
-    if state.motion.selectedNote then
-      g:led(state.motion.selectedNote[1], state.motion.selectedNote[2], 10)
+    if state.motion.note then
+      g:led(state.motion.note, state.motion.track, 10)
     end
   end
 
@@ -320,6 +342,15 @@ function redraw()
   screen.font_size(20)
   screen.move(10, 48)
   screen.text(state.mode)
+
+  if state.motion.note then
+    screen.font_face(1)
+    screen.font_size(8)
+    screen.move(80, 40)
+    local playingSequence = state.meta.sequence[state.meta.position]
+    local pitch = state.sequences[playingSequence][state.motion.note][state.motion.track].pitch
+    screen.text(pitch)
+  end
 
   screen.update()
 end
