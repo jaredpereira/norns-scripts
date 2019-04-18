@@ -40,6 +40,7 @@ function init()
 
   -- Ack setup
   ack.add_params()
+  params:read()
   params:bang()
 
   -- State
