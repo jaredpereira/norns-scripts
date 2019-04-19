@@ -26,6 +26,7 @@ local state = {
   },
   mode = UI.Pages.new(1,3), --possible modes: sequence, meta, motion
   clock = true,
+  recording = false,
   position = 1,
   queuedPosition = nil,
   copying = 0
@@ -95,6 +96,10 @@ function g.key(x, y, z)
     if y <= 6 and z == 0 then
       toggleStep(x, y)
     end
+
+    if y == 8 and z == 1 and x > 10 then
+      recordNote(x-11, y)
+    end
   end
 
   if state.mode.index == 2 then
@@ -134,6 +139,10 @@ function key(n, z)
   if n == 2 and z == 1 then
     toggleClock()
   end
+
+  if n == 3 and z == 1 then
+    toggleRecording()
+  end
 end
 
 function enc(n, direction)
@@ -162,6 +171,19 @@ function toggleStep(x,y)
   local step = state.sequences[state.activeSequence][x][y].trig
   state.sequences[state.activeSequence][x][y].trig = (step + 1) % 2
   grid_redraw()
+end
+
+function toggleRecording()
+  state.recording = state.recording == false
+  redraw()
+end
+
+function recordNote(x)
+  engine.trig(x)
+  if state.recording then
+    local step = state.sequences[state.activeSequence][state.position][x + 1]
+    step.trig = 1
+  end
 end
 
 function setPosition(x)
@@ -261,10 +283,12 @@ function setPitch(direction)
     return
   end
 
-  local step = sequence[state.position][state.motion.track]
-  local param = tostring(state.motion.track) .. '_speed'
-  step.pitch = step.pitch + (direction/20)
-  param:set(param, step.pitch)
+  if state.recording then
+    local step = sequence[state.position][state.motion.track]
+    local param = tostring(state.motion.track) .. '_speed'
+    step.pitch = step.pitch + (direction/20)
+    params:set(param, step.pitch)
+  end
   redraw()
 end
 
@@ -352,10 +376,12 @@ function redraw()
   -- SEQUENCE MODE
   if state.mode.index == 1 then
     screen.text('SEQUENCE')
+    drawRecording()
   -- MOTION MODE
   elseif state.mode.index == 2 then
     screen.text('MOTION')
 
+    drawRecording()
     local speed = params:get(state.motion.track .. '_speed')
     if #state.motion.notes > 0 then
       local playingSequence = state.meta.sequence[state.meta.position]
@@ -372,4 +398,13 @@ function redraw()
 
   state.mode:redraw()
   screen.update()
+end
+
+function drawRecording()
+  if state.recording then
+    screen.move(10,40)
+    screen.font_size(15)
+    screen.text('RECORDING')
+    screen.font_size(8)
+  end
 end
