@@ -11,6 +11,7 @@ local ack = require'ack/lib/ack'
 local g = grid.connect()
 local BeatClock = require 'beatclock'
 local clk = BeatClock.new()
+local UI = require "ui"
 
 local state = {
   sequences = {},
@@ -23,7 +24,7 @@ local state = {
     track = 1,
     notes = {}
   },
-  mode = "sequence", --possible modes: sequence, meta, motion
+  mode = UI.Pages.new(1,3), --possible modes: sequence, meta, motion
   clock = true,
   position = 1,
   queuedPosition = nil,
@@ -83,20 +84,20 @@ end
 ------ EVENTS ------
 
 function g.key(x, y, z)
-  if state.mode == "meta" then
+  if state.mode.index == 3 then
     if z == 1 then
       setMetaStep(x, y)
     end
     return
   end
 
-  if state.mode == 'sequence' then
+  if state.mode.index == 1 then
     if y <= 6 and z == 0 then
       toggleStep(x, y)
     end
   end
 
-  if state.mode == 'motion' then
+  if state.mode.index == 2 then
     if y <= 6 and z == 1 then
       setSelectedTrack(y)
       addSelectedNote(x)
@@ -139,12 +140,12 @@ function enc(n, direction)
   if n == 3 then
     setBPM(direction)
   end
-  if (state.mode == "meta") then
+  if (state.mode.index == 3) then
     if n == 2 then
      changeMetaLength(direction)
     end
   end
-  if state.mode == 'motion' then
+  if state.mode.index == 2 then
     if n == 2 then
       setPitch(direction)
     end
@@ -201,19 +202,7 @@ function toggleCopying()
 end
 
 function changeMode(direction)
-  if state.mode == "sequence" then
-    if direction == 1 then state.mode = "motion"
-    else state.mode = 'meta'
-    end
-  elseif state.mode == "motion" then
-    if direction == 1 then state.mode = 'meta'
-    else state.mode = 'sequence'
-    end
-  elseif state.mode == "meta" then
-    if direction == 1 then state.mode = "sequence"
-      else state.mode = "motion"
-    end
-  end
+  state.mode:set_index_delta(util.clamp(direction, -1, 1), false)
   redraw()
   grid_redraw()
 end
@@ -300,7 +289,7 @@ end
 function grid_redraw()
   g:all(0)
 
-  if state.mode == 'meta' then
+  if state.mode.index == 3 then
     for i=1,8 do
       g:led(state.meta.position, i, 5)
     end
@@ -312,7 +301,7 @@ function grid_redraw()
   end
 
 
-  if state.mode == 'motion' then
+  if state.mode.index == 2 then
     for i=1,16 do
       g:led(i, state.motion.track, 5)
     end
@@ -345,35 +334,42 @@ end
 
 function redraw()
   screen.clear()
+  screen.level(10)
   screen.font_face(1)
   screen.font_size(8)
 
-  -- Draw play/pause
-  screen.move(10,10)
-  if state.clock then
-    screen.text('playing')
-  else
-    screen.text('paused')
-  end
+  screen.move(0, 8)
+  screen.line(128, 8)
+  screen.stroke()
 
   -- Draw BPM
-  screen.move(90, 10)
+  screen.move(90, 5)
   screen.text("BPM: " .. params:get("bpm"))
 
   -- Draw Mode
-  screen.font_face(10)
-  screen.font_size(20)
-  screen.move(10, 48)
-  screen.text(state.mode)
+  screen.move(5, 5)
 
-  if #state.motion.notes > 0 then
-    screen.font_face(1)
-    screen.font_size(8)
-    screen.move(80, 40)
-    local playingSequence = state.meta.sequence[state.meta.position]
-    local pitch = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch
-    screen.text('speed: ' .. pitch)
+  -- SEQUENCE MODE
+  if state.mode.index == 1 then
+    screen.text('SEQUENCE')
+  -- MOTION MODE
+  elseif state.mode.index == 2 then
+    screen.text('MOTION')
+
+    local speed = params:get(state.motion.track .. '_speed')
+    if #state.motion.notes > 0 then
+      local playingSequence = state.meta.sequence[state.meta.position]
+      speed = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch
+    end
+
+    screen.move(10, 48)
+    screen.text('SPEED: ' .. speed)
+
+  -- META MODE
+  else
+    screen.text('META')
   end
 
+  state.mode:redraw()
   screen.update()
 end
