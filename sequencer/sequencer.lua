@@ -21,6 +21,7 @@ local state = {
     position = 1,
   },
   motion = {
+    changed = nil,
     track = 1,
     notes = {}
   },
@@ -69,15 +70,20 @@ function countStep()
   else
     state.position = (state.position % 16) + 1
   end
+  redraw()
   grid_redraw()
-
 
   local playingSequence = state.meta.sequence[state.meta.position]
   local step = state.sequences[playingSequence][state.position]
 
   for i=1,6 do
     local param = tostring(i) .. '_speed'
-    params:set(param, step[i].pitch)
+    if state.motion.changed then
+      params:set(param, state.motion.changed)
+      step[i].pitch = state.motion.changed
+      state.motion.changed = nil
+    else params:set(param, step[i].pitch)
+    end
   end
   engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
 end
@@ -287,6 +293,7 @@ function setPitch(direction)
     local step = sequence[state.position][state.motion.track]
     local param = tostring(state.motion.track) .. '_speed'
     step.pitch = step.pitch + (direction/20)
+    state.motion.changed = step.pitch
     params:set(param, step.pitch)
   end
   redraw()
