@@ -25,6 +25,38 @@ function init()
   params:bang()
 end
 
+function tick()
+  for index, emitter in pairs(state.emitters) do
+    if emitter.clock >= emitter.speed then
+      addNote(emitter.x, emitter.y)
+      emitter.clock = 0
+    else
+      emitter.clock = emitter.clock + 1
+    end
+  end
+
+  for index, note in pairs(state.notes) do
+    if note.x == 16 then
+      engine.trig(note.y - 1)
+      state.notes[index] = nil
+    else
+      note.x = note.x + 1
+    end
+  end
+  grid_redraw()
+end
+
+----------------
+-- INPUTS
+----------------
+
+function enc(num, direction)
+  if num == 2 then
+    changeSpeed(direction)
+  end
+  redraw()
+end
+
 function key(num, state)
   if num == 2 and state == 0 then
     togglePlaying()
@@ -34,6 +66,21 @@ function key(num, state)
     removeEmitter()
   end
 end
+
+function g.key(x, y, z)
+  if z == 0 then
+    removeSelectedEmitter()
+  end
+
+  if  z == 1 then
+    addEmitter(x, y)
+    setSelectedEmitter(x, y)
+  end
+end
+
+-------------------
+-- DRAWING
+-------------------
 
 function redraw()
   screen.clear()
@@ -56,23 +103,9 @@ function grid_redraw()
   g:refresh()
 end
 
-function enc(num, direction)
-  if num == 2 then
-    changeSpeed(direction)
-  end
-  redraw()
-end
-
-function g.key(x, y, z)
-  if z == 0 then
-    removeSelectedEmitter()
-  end
-
-  if  z == 1 then
-    addEmitter(x, y)
-    setSelectedEmitter(x, y)
-  end
-end
+----------------
+-- ACTIONS
+----------------
 
 function removeSelectedEmitter()
   state.selectedEmitter = nil
@@ -131,25 +164,3 @@ end
 function addNote(x, y)
   table.insert(state.notes, {x = x, y = y})
 end
-
-function tick()
-  for index, emitter in pairs(state.emitters) do
-    if emitter.clock >= emitter.speed then
-      addNote(emitter.x, emitter.y)
-      emitter.clock = 0
-    else
-      emitter.clock = emitter.clock + 1
-    end
-  end
-
-  for index, note in pairs(state.notes) do
-    if note.x == 16 then
-      engine.trig(note.y - 1)
-      state.notes[index] = nil
-    else
-      note.x = note.x + 1
-    end
-  end
-  grid_redraw()
-end
-
