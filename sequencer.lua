@@ -2,9 +2,12 @@
 -- v 0.0.3
 --
 -- requires a grid
--- press any key in rows 1-4
+-- press any key in rows 1-6
 --
--- row 5 jumps to step
+-- row 7 jumps to step
+-- row 8 is a pattern bank
+--
+-- Knob 1 to change mode
 
 engine.name = 'Ack'
 local ack = require'ack/lib/ack'
