@@ -24,7 +24,6 @@ local state = {
     position = 1,
   },
   motion = {
-    changed = nil,
     track = 1,
     notes = {}
   },
@@ -81,12 +80,7 @@ function countStep()
 
   for i=1,6 do
     local param = tostring(i) .. '_speed'
-    if state.motion.changed then
-      params:set(param, state.motion.changed)
-      step[i].pitch = state.motion.changed
-      state.motion.changed = nil
-    else params:set(param, step[i].pitch)
-    end
+    params:set(param, step[i].pitch)
   end
   engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
 end
@@ -292,11 +286,10 @@ function setPitch(direction)
     return
   end
 
-  if state.recording then
-    local step = sequence[state.position][state.motion.track]
+  local step = sequence[state.position][state.motion.track]
+  if state.recording and step.trig == 1 then
     local param = tostring(state.motion.track) .. '_speed'
     step.pitch = step.pitch + (direction/20)
-    state.motion.changed = step.pitch
     params:set(param, step.pitch)
   end
   redraw()
