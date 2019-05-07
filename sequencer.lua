@@ -9,15 +9,19 @@
 --
 -- Knob 1 to change mode
 
+
 engine.name = 'Ack'
 local ack = require'ack/lib/ack'
 local g = grid.connect()
 local BeatClock = require 'beatclock'
-local clk = BeatClock.new()
+local clock = BeatClock.new()
 local UI = require "ui"
+
+local clock = metro.init()
 
 local state = {
   sequences = {},
+  bpm = 80,
   activeSequence = 1,
   meta = {
     sequence = {1},
@@ -35,13 +39,17 @@ local state = {
   copying = 0
 }
 
+local pitches = {}
+for k=1,96 do
+  table.insert(pitches, 1)
+end
+
 function init()
   -- BeatClock
-  clk.on_step = countStep
-  clk.on_select_internal = function() clk:start() end
+  clock.time = 15/(state.bpm * 96)
+  clock.event = countStep
 
-  clk:add_clock_params()
-  clk:start()
+  clock:start()
 
   -- Ack setup
   ack.add_params()
@@ -54,7 +62,7 @@ function init()
     for i=1,16 do
       local step = {}
       for j=1,6 do
-        table.insert(step, {trig=0, pitch=1})
+        table.insert(step, {trig=0, pitch=pitches})
       end
       table.insert(sequence, step)
     end
@@ -62,27 +70,31 @@ function init()
   end
 end
 
-function countStep()
-  if state.position == 16 then
-    state.meta.position = (state.meta.position % #state.meta.sequence) + 1
-  end
-  if state.queuedPosition then
-    state.position = state.queuedPosition
-    state.queuedPosition = nil
-  else
-    state.position = (state.position % 16) + 1
-  end
-  redraw()
-  grid_redraw()
+function countStep(t)
+  if t%96 == 0 then
+    if state.position == 16 then
+      state.meta.position = (state.meta.position % #state.meta.sequence) + 1
+    end
+    if state.queuedPosition then
+      state.position = state.queuedPosition
+      state.queuedPosition = nil
+    else
+      state.position = (state.position % 16) + 1
+    end
+    redraw()
+    grid_redraw()
 
-  local playingSequence = state.meta.sequence[state.meta.position]
-  local step = state.sequences[playingSequence][state.position]
+    local playingSequence = state.meta.sequence[state.meta.position]
+    local step = state.sequences[playingSequence][state.position]
+
+    engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
+  end
 
   for i=1,6 do
     local param = tostring(i) .. '_speed'
-    params:set(param, step[i].pitch)
+    params:set(param, step[i].pitch[(t%96) + 1])
   end
-  engine.multiTrig(step[1].trig, step[2].trig, step[3].trig, step[4].trig, step[5].trig, step[6].trig, 0 ,0)
+
 end
 
 ------ EVENTS ------
@@ -196,9 +208,9 @@ end
 
 function toggleClock()
   if state.clock then
-    clk:stop()
+    clock:stop()
   else
-    clk:start()
+    clock:start()
   end
   state.clock = state.clock == false
   redraw()
@@ -207,8 +219,8 @@ end
 function clearPattern()
   for i=1,16 do
     state.sequences[state.activeSequence][i] = {
-      {trig=0, pitch=1},{trig=0, pitch=1},{trig=0, pitch=1},
-      {trig=0, pitch=1},{trig=0, pitch=1},{trig=0, pitch=1}
+      {trig=0, pitch=pitches},{trig=0, pitch=pitches},{trig=0, pitch=pitches},
+      {trig=0, pitch=pitches},{trig=0, pitch=pitches},{trig=0, pitch=pitches}
       }
   end
   grid_redraw()
@@ -305,8 +317,8 @@ function copySequence(x)
 end
 
 function setBPM(x)
-  local bpm = params:get('bpm')
-  params:set('bpm', bpm + x)
+  state.bpm = state.bpm + x
+  clock.time = 15/(state.bpm * 96)
   redraw()
 end
 
@@ -371,7 +383,7 @@ function redraw()
 
   -- Draw BPM
   screen.move(90, 5)
-  screen.text("BPM: " .. params:get("bpm"))
+  screen.text("BPM: " .. state.bpm)
 
   -- Draw Mode
   screen.move(5, 5)
