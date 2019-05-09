@@ -36,6 +36,7 @@ local state = {
   mode = UI.Pages.new(1,3), --possible modes: sequence, meta, motion
   clock = true,
   recording = false,
+  recordingPosition = 0,
   position = 1,
   queuedPosition = nil,
   copying = 0
@@ -80,6 +81,9 @@ function countStep(t)
   if t%96 == 0 then
     if state.position == 16 then
       state.meta.position = (state.meta.position % #state.meta.sequence) + 1
+    end
+
+    if state.recordingPosition == state.position then
       state.recording = false
     end
     if state.queuedPosition then
@@ -203,6 +207,7 @@ end
 
 function toggleRecording()
   state.recording = state.recording == false
+  state.recordingPosition = state.position - 1
   redraw()
 end
 
