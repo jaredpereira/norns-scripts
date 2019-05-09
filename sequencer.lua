@@ -20,6 +20,9 @@ local UI = require "ui"
 local clock = metro.init()
 
 local state = {
+  pitchPositions = {
+    1, 1, 1, 1, 1, 1
+  },
   t = 0,
   sequences = {},
   bpm = 80,
@@ -28,11 +31,7 @@ local state = {
     sequence = {1},
     position = 1,
   },
-  motion = {
-    pitchPos = 1,
-    track = 1,
-    notes = {}
-  },
+  activeTrack = 1,
   mode = UI.Pages.new(1,2), --possible modes: sequence, meta, motion
   clock = true,
   recording = false,
@@ -42,10 +41,10 @@ local state = {
   copying = 0
 }
 
-function generatePitches()
+function generatePitches(num)
   local pitches = {}
   for k=1,96 do
-    table.insert(pitches, 1)
+    table.insert(pitches, num)
   end
   return pitches
 end
@@ -68,7 +67,7 @@ function init()
     for i=1,16 do
       local step = {}
       for j=1,6 do
-        table.insert(step, {trig=0, pitch=generatePitches()})
+        table.insert(step, {trig=0, pitch=generatePitches(1)})
       end
       table.insert(sequence, step)
     end
@@ -105,11 +104,10 @@ function countStep(t)
     local playingSequence = state.meta.sequence[state.meta.position]
     local step = state.sequences[playingSequence][state.position]
     local param = tostring(i) .. '_speed'
-    if state.mode.index == 1 and state.motion.track == i and state.recording == true then
-      step[i].pitch[state.t] = state.motion.pitchPos
+    if state.mode.index == 1 and state.activeTrack == i and state.recording == true then
+      step[i].pitch[state.t] = state.pitchPositions[state.activeTrack]
     end
     params:set(param, step[i].pitch[state.t])
-    print(step[i].pitch[state.t])
   end
 
 end
@@ -127,12 +125,12 @@ function g.key(x, y, z)
   if state.mode.index == 1 then
     if y <= 6 and z == 0 then
       toggleStep(x, y)
-      setSelectedTrack(y)
+      setActiveTrack(y)
     end
 
     if y == 8 and z == 1 and x > 10 then
       recordNote(x-11, y)
-      setSelectedTrack(x-11)
+      setActiveTrack(x-10)
     end
   end
 
@@ -153,7 +151,6 @@ function g.key(x, y, z)
       end
     end
   end
-
 end
 
 function key(n, z)
@@ -205,9 +202,12 @@ function toggleRecording()
 end
 
 function recordNote(x)
+  setActiveTrack(x+1)
+  params:set(state.activeTrack..'_speed', state.pitchPositions[state.activeTrack])
   engine.trig(x)
   if state.recording then
     local step = state.sequences[state.activeSequence][state.position][x + 1]
+    step.pitches = generatePitches(state.pitchPositions[x+1])
     step.trig = 1
   end
 end
@@ -230,8 +230,8 @@ end
 function clearPattern()
   for i=1,16 do
     state.sequences[state.activeSequence][i] = {
-      {trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},
-      {trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()}
+      {trig=0, pitch=generatePitches(1)},{trig=0, pitch=generatePitches(1)},{trig=0, pitch=generatePitches(1)},
+      {trig=0, pitch=generatePitches(1)},{trig=0, pitch=generatePitches(1)},{trig=0, pitch=generatePitches(1)}
       }
   end
   grid_redraw()
@@ -274,48 +274,14 @@ function changeMetaLength(x)
   grid_redraw()
 end
 
-function setSelectedTrack(track)
-  state.motion.track = track
-  redraw()
-end
-
-function addSelectedNote(note)
-  table.insert(state.motion.notes, note)
-  grid_redraw()
-  redraw()
-end
-
-function removeSelectedNote(note)
-  for key, value in pairs(state.motion.notes) do
-    if value == note then
-      table.remove(state.motion.notes, key)
-    end
-  end
-  grid_redraw()
+function setActiveTrack(track)
+  state.activeTrack = track
   redraw()
 end
 
 function setPitch(direction)
-  -- local playingSequence = state.meta.sequence[state.meta.position]
-  -- local sequence = state.sequences[playingSequence]
-
-  state.motion.pitchPos = state.motion.pitchPos + direction/20
-
-  -- if #state.motion.notes > 0 then
-  --   for key, value in pairs(state.motion.notes) do
-  --     local note = sequence[value][state.motion.track]
-  --     note.pitch[state.t] = note.pitch[state.t] + (direction/20)
-  --   end
-  --   redraw()
-  --   return
-  --  end
-
-  -- local step = sequence[state.position][state.motion.track]
-  -- if state.recording then
-  --   local param = tostring(state.motion.track) .. '_speed'
-  --   step.pitch[state.t] = step.pitch[state.t] + (direction/20)
-  --   params:set(param, step.pitch[state.t])
-  -- end
+  local pitches = state.pitchPositions
+  pitches[state.activeTrack] = pitches[state.activeTrack] + direction/20
   redraw()
 end
 
@@ -323,7 +289,11 @@ function copySequence(x)
   if state.copying == 0 then return end
   for step, value in pairs(state.sequences[state.copying]) do
     for sample, note in pairs(value) do
-      state.sequences[x][step][sample] = {trig=note.trig, pitch=note.pitch}
+      local pitch = {}
+      for i = 1, 96 do
+        table.insert(pitch, note.pitch[i])
+      end
+      state.sequences[x][step][sample] = {trig=note.trig, pitch=pitch}
     end
   end
 end
@@ -392,15 +362,11 @@ function redraw()
   if state.mode.index == 1 then
     screen.text('SEQUENCE')
     drawRecording()
-    local speed = params:get(state.motion.track .. '_speed')
-    if #state.motion.notes > 0 then
-      local playingSequence = state.meta.sequence[state.meta.position]
-      speed = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch[state.t]
-    end
-
-    screen.move(10, 48)
-    screen.text('SPEED: ' .. speed)
-
+    screen.font_size(16)
+    screen.move(0, 25)
+    screen.text('TRACK:' .. state.activeTrack)
+    screen.move(0, 38)
+    screen.text('SPEED:' .. state.pitchPositions[state.activeTrack])
   -- META MODE
   else
     screen.text('META')
@@ -412,9 +378,10 @@ end
 
 function drawRecording()
   if state.recording then
-    screen.move(10,40)
-    screen.font_size(15)
+    screen.move(0,60)
+    screen.level(16)
+    screen.font_size(24)
     screen.text('RECORDING')
-    screen.font_size(8)
+    screen.level(10)
   end
 end
