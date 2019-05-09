@@ -33,7 +33,7 @@ local state = {
     track = 1,
     notes = {}
   },
-  mode = UI.Pages.new(1,3), --possible modes: sequence, meta, motion
+  mode = UI.Pages.new(1,2), --possible modes: sequence, meta, motion
   clock = true,
   recording = false,
   recordingPosition = 0,
@@ -105,7 +105,7 @@ function countStep(t)
     local playingSequence = state.meta.sequence[state.meta.position]
     local step = state.sequences[playingSequence][state.position]
     local param = tostring(i) .. '_speed'
-    if state.mode.index == 2 and state.motion.track == i and state.recording == true then
+    if state.mode.index == 1 and state.motion.track == i and state.recording == true then
       step[i].pitch[state.t] = state.motion.pitchPos
     end
     params:set(param, step[i].pitch[state.t])
@@ -117,7 +117,7 @@ end
 ------ EVENTS ------
 
 function g.key(x, y, z)
-  if state.mode.index == 3 then
+  if state.mode.index == 2 then
     if z == 1 then
       setMetaStep(x, y)
     end
@@ -127,19 +127,12 @@ function g.key(x, y, z)
   if state.mode.index == 1 then
     if y <= 6 and z == 0 then
       toggleStep(x, y)
+      setSelectedTrack(y)
     end
 
     if y == 8 and z == 1 and x > 10 then
       recordNote(x-11, y)
-    end
-  end
-
-  if state.mode.index == 2 then
-    if y <= 6 and z == 1 then
-      setSelectedTrack(y)
-      addSelectedNote(x)
-    elseif y<=6 and z ==0 then
-      removeSelectedNote(x)
+      setSelectedTrack(x-11)
     end
   end
 
@@ -181,12 +174,12 @@ function enc(n, direction)
   if n == 3 then
     setBPM(direction)
   end
-  if (state.mode.index == 3) then
+  if (state.mode.index == 2) then
     if n == 2 then
      changeMetaLength(direction)
     end
   end
-  if state.mode.index == 2 then
+  if state.mode.index == 1 then
     if n == 2 then
       setPitch(direction)
     end
@@ -347,7 +340,7 @@ end
 function grid_redraw()
   g:all(0)
 
-  if state.mode.index == 3 then
+  if state.mode.index == 2 then
     for i=1,8 do
       g:led(state.meta.position, i, 5)
     end
@@ -356,18 +349,6 @@ function grid_redraw()
     end
     g:refresh()
     return
-  end
-
-
-  if state.mode.index == 2 then
-    for i=1,16 do
-      g:led(i, state.motion.track, 5)
-    end
-    if #state.motion.notes > 0 then
-      for key, value in pairs(state.motion.notes) do
-        g:led(value, state.motion.track, 10)
-      end
-    end
   end
 
   for i=1,8 do
@@ -410,11 +391,6 @@ function redraw()
   -- SEQUENCE MODE
   if state.mode.index == 1 then
     screen.text('SEQUENCE')
-    drawRecording()
-  -- MOTION MODE
-  elseif state.mode.index == 2 then
-    screen.text('MOTION')
-
     drawRecording()
     local speed = params:get(state.motion.track .. '_speed')
     if #state.motion.notes > 0 then
