@@ -20,6 +20,7 @@ local UI = require "ui"
 local clock = metro.init()
 
 local state = {
+  t = 0,
   sequences = {},
   bpm = 80,
   activeSequence = 1,
@@ -28,6 +29,7 @@ local state = {
     position = 1,
   },
   motion = {
+    pitchPos = 1,
     track = 1,
     notes = {}
   },
@@ -39,9 +41,12 @@ local state = {
   copying = 0
 }
 
-local pitches = {}
-for k=1,96 do
-  table.insert(pitches, 1)
+function generatePitches()
+  local pitches = {}
+  for k=1,96 do
+    table.insert(pitches, 1)
+  end
+  return pitches
 end
 
 function init()
@@ -62,7 +67,7 @@ function init()
     for i=1,16 do
       local step = {}
       for j=1,6 do
-        table.insert(step, {trig=0, pitch=pitches})
+        table.insert(step, {trig=0, pitch=generatePitches()})
       end
       table.insert(sequence, step)
     end
@@ -71,9 +76,11 @@ function init()
 end
 
 function countStep(t)
+  state.t = (t % 96) + 1
   if t%96 == 0 then
     if state.position == 16 then
       state.meta.position = (state.meta.position % #state.meta.sequence) + 1
+      state.recording = false
     end
     if state.queuedPosition then
       state.position = state.queuedPosition
@@ -91,8 +98,14 @@ function countStep(t)
   end
 
   for i=1,6 do
+    local playingSequence = state.meta.sequence[state.meta.position]
+    local step = state.sequences[playingSequence][state.position]
     local param = tostring(i) .. '_speed'
-    params:set(param, step[i].pitch[(t%96) + 1])
+    if state.mode.index == 2 and state.motion.track == i and state.recording == true then
+      step[i].pitch[state.t] = state.motion.pitchPos
+    end
+    params:set(param, step[i].pitch[state.t])
+    print(step[i].pitch[state.t])
   end
 
 end
@@ -219,8 +232,8 @@ end
 function clearPattern()
   for i=1,16 do
     state.sequences[state.activeSequence][i] = {
-      {trig=0, pitch=pitches},{trig=0, pitch=pitches},{trig=0, pitch=pitches},
-      {trig=0, pitch=pitches},{trig=0, pitch=pitches},{trig=0, pitch=pitches}
+      {trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},
+      {trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()},{trig=0, pitch=generatePitches()}
       }
   end
   grid_redraw()
@@ -285,25 +298,26 @@ function removeSelectedNote(note)
 end
 
 function setPitch(direction)
-  local playingSequence = state.meta.sequence[state.meta.position]
-  local sequence = state.sequences[playingSequence]
+  -- local playingSequence = state.meta.sequence[state.meta.position]
+  -- local sequence = state.sequences[playingSequence]
 
-  if #state.motion.notes > 0 then
-    local basePitch = sequence[state.motion.notes[1]][state.motion.track].pitch
-    for key, value in pairs(state.motion.notes) do
-      local note = sequence[value][state.motion.track]
-      note.pitch = basePitch + (direction/20)
-    end
-    redraw()
-    return
-  end
+  state.motion.pitchPos = state.motion.pitchPos + direction/20
 
-  local step = sequence[state.position][state.motion.track]
-  if state.recording and step.trig == 1 then
-    local param = tostring(state.motion.track) .. '_speed'
-    step.pitch = step.pitch + (direction/20)
-    params:set(param, step.pitch)
-  end
+  -- if #state.motion.notes > 0 then
+  --   for key, value in pairs(state.motion.notes) do
+  --     local note = sequence[value][state.motion.track]
+  --     note.pitch[state.t] = note.pitch[state.t] + (direction/20)
+  --   end
+  --   redraw()
+  --   return
+  --  end
+
+  -- local step = sequence[state.position][state.motion.track]
+  -- if state.recording then
+  --   local param = tostring(state.motion.track) .. '_speed'
+  --   step.pitch[state.t] = step.pitch[state.t] + (direction/20)
+  --   params:set(param, step.pitch[state.t])
+  -- end
   redraw()
 end
 
@@ -400,7 +414,7 @@ function redraw()
     local speed = params:get(state.motion.track .. '_speed')
     if #state.motion.notes > 0 then
       local playingSequence = state.meta.sequence[state.meta.position]
-      speed = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch
+      speed = state.sequences[playingSequence][state.motion.notes[1]][state.motion.track].pitch[state.t]
     end
 
     screen.move(10, 48)
