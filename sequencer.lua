@@ -1,14 +1,28 @@
--- jss (jared's simple sequencer)
--- v 0.0.3
+-- simple sequencer
+-- v 0.1.0
 --
 -- requires a grid
 -- press any key in rows 1-6
+-- to set a step
 --
 -- row 7 jumps to step
 -- row 8 is a pattern bank
 --
 -- Knob 1 to change mode
-
+-- Knob 2 to change pitch
+-- Knob 3 to change bpm
+--
+-- Hold key 1 to clear pattern
+-- key 2 to pause
+-- key 3 to toggle record
+--
+-- While recording:
+--     press last 6 keys in row 8
+--     turn knob 2 to record pitch
+--
+-- While in meta mode:
+--     press keys in row 1-8 to set pattern
+--     Knob 2 to change sequence length
 
 engine.name = 'Ack'
 local ack = require'ack/lib/ack'
@@ -32,7 +46,7 @@ local state = {
     position = 1,
   },
   activeTrack = 1,
-  mode = UI.Pages.new(1,2), --possible modes: sequence, meta, motion
+  mode = UI.Pages.new(1,2), -- possible modes: sequence, motion
   clock = true,
   recording = false,
   recordingPosition = 0,
